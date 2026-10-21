@@ -27,7 +27,7 @@
                 android:type="radial"
                 android:centerX="38"
                 android:centerY="33"
-                android:gradientRadius="50"
+                android:gradientRadius="62"
                 android:startColor="@color/ic_launcher_deepseek_glow"
                 android:endColor="@color/ic_launcher_deepseek_fade" />
         </aapt:attr>
@@ -40,7 +40,7 @@
                 android:type="radial"
                 android:centerX="76"
                 android:centerY="46"
-                android:gradientRadius="46"
+                android:gradientRadius="58"
                 android:startColor="@color/ic_launcher_claude_glow"
                 android:endColor="@color/ic_launcher_claude_fade" />
         </aapt:attr>
@@ -53,7 +53,7 @@
                 android:type="radial"
                 android:centerX="44"
                 android:centerY="78"
-                android:gradientRadius="50"
+                android:gradientRadius="62"
                 android:startColor="@color/ic_launcher_openai_glow"
                 android:endColor="@color/ic_launcher_openai_fade" />
         </aapt:attr>
