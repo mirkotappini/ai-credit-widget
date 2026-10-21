@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Palette chiara: token della spec. -->
+    <color name="ds_color_bg">#F3F6F6</color>
+    <color name="ds_color_surface">#FFFFFF</color>
+    <color name="ds_color_surface_high">#EAF0F0</color>
+    <color name="ds_color_border">#DCE5E5</color>
+    <color name="ds_color_text_primary">#0B1416</color>
+    <color name="ds_color_text_secondary">#46585D</color>
+    <color name="ds_color_text_tertiary">#596B70</color>
+    <color name="ds_color_accent">#0A7065</color>
+    <color name="ds_color_accent_container">#D8F1EC</color>
+    <color name="ds_color_on_accent">#FFFFFF</color>
+    <color name="ds_color_data_muted">#B7C4C4</color>
+    <color name="ds_color_positive">#146C43</color>
+    <color name="ds_color_warning">#8A5200</color>
+    <color name="ds_color_warning_container">#FBEED6</color>
+    <color name="ds_color_error">#B3261E</color>
+    <color name="ds_color_error_container">#FBE4E1</color>
+    <color name="ds_color_on_error">#FFFFFF</color>
+    <color name="ds_color_chart_grid">#E3EBEB</color>
+    <color name="ds_color_chart_fill">#260A7065</color>
+    <color name="ds_color_bar_past">#4D0A7065</color>
+    <color name="ds_color_skeleton">#E3EAEA</color>
+    <color name="ds_color_ripple">#1F0A7065</color>
+
+    <!-- Alias legacy usati da widget e vecchie risorse finche' non vengono riscritti. -->
+    <color name="chart_line">@color/ds_color_accent</color>
+    <color name="chart_bar">@color/ds_color_accent</color>
+    <color name="chart_fill">@color/ds_color_chart_fill</color>
+    <color name="chart_grid">@color/ds_color_chart_grid</color>
+    <color name="chart_text">@color/ds_color_text_tertiary</color>
+    <color name="widget_background">@color/ds_color_surface</color>
+    <color name="widget_stroke">@color/ds_color_border</color>
+    <color name="widget_text">@color/ds_color_text_primary</color>
+    <color name="widget_text_secondary">@color/ds_color_text_secondary</color>
+    <color name="widget_error">@color/ds_color_error</color>
+</resources>

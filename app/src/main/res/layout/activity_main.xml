@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ds_color_bg"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/ds_toolbar_height"
+        android:background="@color/ds_color_bg"
+        android:elevation="0dp"
+        android:outlineProvider="none"
+        app:contentInsetStart="20dp"
+        app:contentInsetStartWithNavigation="8dp"
+        app:navigationIconTint="@color/ds_color_text_primary"
+        app:titleTextAppearance="@style/TextAppearance.Ds.ScreenTitle"
+        app:titleTextColor="@color/ds_color_text_primary" />
+
+    <FrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+</LinearLayout>

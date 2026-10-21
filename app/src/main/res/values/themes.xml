@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DeepSeekWidget.Base" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/ds_color_accent</item>
+        <item name="colorOnPrimary">@color/ds_color_on_accent</item>
+        <item name="colorPrimaryContainer">@color/ds_color_accent_container</item>
+        <item name="colorOnPrimaryContainer">@color/ds_color_accent</item>
+        <item name="colorSecondary">@color/ds_color_text_secondary</item>
+        <item name="colorOnSecondary">@color/ds_color_bg</item>
+        <item name="colorSecondaryContainer">@color/ds_color_surface_high</item>
+        <item name="colorOnSecondaryContainer">@color/ds_color_text_primary</item>
+        <item name="colorSurface">@color/ds_color_surface</item>
+        <item name="colorOnSurface">@color/ds_color_text_primary</item>
+        <item name="colorSurfaceVariant">@color/ds_color_surface_high</item>
+        <item name="colorOnSurfaceVariant">@color/ds_color_text_secondary</item>
+        <item name="colorOutline">@color/ds_color_border</item>
+        <item name="colorOutlineVariant">@color/ds_color_chart_grid</item>
+        <item name="colorError">@color/ds_color_error</item>
+        <item name="colorOnError">@color/ds_color_on_error</item>
+        <item name="colorErrorContainer">@color/ds_color_error_container</item>
+        <item name="colorOnErrorContainer">@color/ds_color_error</item>
+        <item name="colorSurfaceContainerLowest">@color/ds_color_bg</item>
+        <item name="colorSurfaceContainerLow">@color/ds_color_surface</item>
+        <item name="colorSurfaceContainer">@color/ds_color_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/ds_color_surface_high</item>
+        <item name="colorSurfaceContainerHighest">@color/ds_color_surface_high</item>
+        <item name="colorControlHighlight">@color/ds_color_ripple</item>
+        <item name="colorAccent">@color/ds_color_accent</item>
+        <item name="android:colorBackground">@color/ds_color_bg</item>
+        <item name="colorOnBackground">@color/ds_color_text_primary</item>
+        <item name="android:textColorPrimary">@color/ds_color_text_primary</item>
+        <item name="android:textColorSecondary">@color/ds_color_text_secondary</item>
+        <item name="android:textColorHint">@color/ds_color_text_tertiary</item>
+        <item name="android:fontFamily">@font/plex_sans_regular</item>
+        <item name="android:windowBackground">@color/ds_color_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/ds_color_bg</item>
+    </style>
+
+    <style name="Theme.DeepSeekWidget" parent="Theme.DeepSeekWidget.Base">
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

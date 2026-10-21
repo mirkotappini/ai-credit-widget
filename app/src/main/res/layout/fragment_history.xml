@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/history_swipe"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ds_color_bg">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/history_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="@dimen/ds_space_20"
+            android:paddingTop="@dimen/ds_space_8"
+            android:paddingEnd="@dimen/ds_space_20"
+            android:paddingBottom="@dimen/ds_space_32">
+
+            <include
+                layout="@layout/view_provider_selector"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/ds_provider_height" />
+
+            <LinearLayout
+                android:id="@+id/history_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/bg_banner_warning"
+                android:gravity="center_vertical"
+                android:minHeight="40dp"
+                android:orientation="horizontal"
+                android:paddingStart="@dimen/ds_space_12"
+                android:paddingTop="@dimen/ds_space_4"
+                android:paddingEnd="@dimen/ds_space_12"
+                android:paddingBottom="@dimen/ds_space_4"
+                android:visibility="gone"
+                tools:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/history_status_dot"
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/dot_warning" />
+
+                <TextView
+                    android:id="@+id/history_status_text"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:textAppearance="@style/TextAppearance.Ds.Caption"
+                    android:textColor="@color/ds_color_text_secondary" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/history_status_action"
+                    style="@style/Widget.Ds.Button.Text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:text="@string/history_status_settings"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/range_group"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/range_7"
+                    style="@style/Widget.Ds.Button.Toggle"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="@string/history_range_7" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/range_30"
+                    style="@style/Widget.Ds.Button.Toggle"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="@string/history_range_30" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <TextView
+                android:id="@+id/data_since"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textAppearance="@style/TextAppearance.Ds.Caption"
+                android:visibility="gone" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/balance_card"
+                style="@style/Widget.Ds.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ds_space_16">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="24dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/history_balance_title"
+                            android:textAppearance="@style/TextAppearance.Ds.CardTitle" />
+
+                        <TextView
+                            android:id="@+id/current_balance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/value_unknown"
+                            android:textAppearance="@style/TextAppearance.Ds.MonoS"
+                            android:textColor="@color/ds_color_text_secondary" />
+                    </LinearLayout>
+
+                    <com.patchouli.deepseekwidget.view.BalanceChartView
+                        android:id="@+id/balance_chart"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/ds_chart_height"
+                        android:layout_marginTop="12dp" />
+
+                    <TextView
+                        android:id="@+id/chart_caption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textAppearance="@style/TextAppearance.Ds.Caption"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/min_max_row"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/min_value"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textAppearance="@style/TextAppearance.Ds.MonoXS"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/max_value"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="end"
+                            android:textAppearance="@style/TextAppearance.Ds.MonoXS"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/spend_card"
+                style="@style/Widget.Ds.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ds_space_16">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="24dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/history_spend_title"
+                            android:textAppearance="@style/TextAppearance.Ds.CardTitle" />
+
+                        <TextView
+                            android:id="@+id/spend_total"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/value_unknown"
+                            android:textAppearance="@style/TextAppearance.Ds.MonoS"
+                            android:textColor="@color/ds_color_text_secondary" />
+                    </LinearLayout>
+
+                    <com.patchouli.deepseekwidget.view.DailySpendChartView
+                        android:id="@+id/spend_chart"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/ds_bars_height"
+                        android:layout_marginTop="12dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/history_spend_caption"
+                        android:textAppearance="@style/TextAppearance.Ds.Caption" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+
+            <LinearLayout
+                android:id="@+id/openai_history"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="gone">
+
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/Widget.Ds.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/ds_space_16">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:baselineAligned="false"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/openai_period_total"
+                                    android:textAppearance="@style/TextAppearance.Ds.Overline" />
+
+                                <TextView
+                                    android:id="@+id/openai_period_total"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:maxLines="1"
+                                    android:text="@string/value_unknown"
+                                    android:textAppearance="@style/TextAppearance.Ds.DisplayS"
+                                    app:autoSizeMaxTextSize="28sp"
+                                    app:autoSizeMinTextSize="24sp"
+                                    app:autoSizeTextType="uniform" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="end"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/openai_daily_average"
+                                    android:textAppearance="@style/TextAppearance.Ds.Overline" />
+
+                                <TextView
+                                    android:id="@+id/openai_average"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="@string/value_unknown"
+                                    android:textAppearance="@style/TextAppearance.Ds.MonoM"
+                                    android:textColor="@color/ds_color_text_secondary" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/openai_period_caption"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:maxLines="1"
+                            android:textAppearance="@style/TextAppearance.Ds.CaptionSmall"
+                            android:textColor="@color/ds_color_text_tertiary" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/openai_average_caption"
+                            android:textAppearance="@style/TextAppearance.Ds.CaptionSmall"
+                            android:textColor="@color/ds_color_text_tertiary" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/Widget.Ds.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/ds_space_16">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="24dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/openai_daily_spend"
+                                android:textAppearance="@style/TextAppearance.Ds.CardTitle" />
+
+                            <TextView
+                                android:id="@+id/openai_chart_period"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textAppearance="@style/TextAppearance.Ds.Caption" />
+                        </LinearLayout>
+
+                        <com.patchouli.deepseekwidget.view.DailySpendChartView
+                            android:id="@+id/openai_history_chart"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/ds_bars_height"
+                            android:layout_marginTop="12dp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:maxLines="2"
+                            android:text="@string/openai_bars_caption"
+                            android:textAppearance="@style/TextAppearance.Ds.CaptionSmall"
+                            android:textColor="@color/ds_color_text_tertiary" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="32dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/openai_costs_by_day"
+                        android:textAppearance="@style/TextAppearance.Ds.Overline" />
+
+                    <TextView
+                        android:id="@+id/openai_list_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Ds.Caption" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/openai_cost_list"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/snapshot_section"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="32dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/history_snapshots"
+                    android:textAppearance="@style/TextAppearance.Ds.Overline" />
+
+                <TextView
+                    android:id="@+id/snapshot_header"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Ds.Caption" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/snapshot_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/load_more"
+                style="@style/Widget.Ds.Button.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:text="@string/history_load_more"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/history_empty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:paddingTop="24dp"
+                android:paddingStart="@dimen/ds_space_8"
+                android:paddingEnd="@dimen/ds_space_8"
+                android:visibility="gone"
+                tools:visibility="gone">
+
+                <TextView
+                    android:id="@+id/empty_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="@string/history_empty_title"
+                    android:textAppearance="@style/TextAppearance.Ds.Body"
+                    android:textColor="@color/ds_color_text_secondary" />
+
+                <TextView
+                    android:id="@+id/empty_body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:text="@string/history_empty_body"
+                    android:textAppearance="@style/TextAppearance.Ds.Caption" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/empty_action"
+                    style="@style/Widget.Ds.Button.Primary"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/history_empty_dashboard" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/empty_action_secondary"
+                    style="@style/Widget.Ds.Button.Text"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

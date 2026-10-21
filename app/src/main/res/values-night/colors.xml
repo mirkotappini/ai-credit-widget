@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Palette scura: riferimento di design. -->
+    <color name="ds_color_bg">#0A0E10</color>
+    <color name="ds_color_surface">#11171A</color>
+    <color name="ds_color_surface_high">#172024</color>
+    <color name="ds_color_border">#243237</color>
+    <color name="ds_color_text_primary">#E8EEF0</color>
+    <color name="ds_color_text_secondary">#A7B4B9</color>
+    <color name="ds_color_text_tertiary">#7E8F95</color>
+    <color name="ds_color_accent">#2FD3BE</color>
+    <color name="ds_color_accent_container">#0E2F2C</color>
+    <color name="ds_color_on_accent">#04201D</color>
+    <color name="ds_color_data_muted">#3C4C52</color>
+    <color name="ds_color_positive">#5BD68A</color>
+    <color name="ds_color_warning">#E8B04B</color>
+    <color name="ds_color_warning_container">#2E2413</color>
+    <color name="ds_color_error">#F0736A</color>
+    <color name="ds_color_error_container">#2E1715</color>
+    <color name="ds_color_on_error">#2A0B09</color>
+    <color name="ds_color_chart_grid">#1F2B2F</color>
+    <color name="ds_color_chart_fill">#382FD3BE</color>
+    <color name="ds_color_bar_past">#592FD3BE</color>
+    <color name="ds_color_skeleton">#1B2529</color>
+    <color name="ds_color_ripple">#332FD3BE</color>
+
+    <color name="chart_line">@color/ds_color_accent</color>
+    <color name="chart_bar">@color/ds_color_accent</color>
+    <color name="chart_fill">@color/ds_color_chart_fill</color>
+    <color name="chart_grid">@color/ds_color_chart_grid</color>
+    <color name="chart_text">@color/ds_color_text_tertiary</color>
+    <color name="widget_background">@color/ds_color_surface</color>
+    <color name="widget_stroke">@color/ds_color_border</color>
+    <color name="widget_text">@color/ds_color_text_primary</color>
+    <color name="widget_text_secondary">@color/ds_color_text_secondary</color>
+    <color name="widget_error">@color/ds_color_error</color>
+</resources>

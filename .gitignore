@@ -1,0 +1,24 @@
+# Gradle / build
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+
+# Config locale della macchina di build
+local.properties
+keystore.properties
+signing.properties
+
+# Segreti: mai nel repo
+*.jks
+*.keystore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# macOS
+.DS_Store

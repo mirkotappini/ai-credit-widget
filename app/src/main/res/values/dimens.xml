@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="ds_space_2">2dp</dimen>
+    <dimen name="ds_space_4">4dp</dimen>
+    <dimen name="ds_space_6">6dp</dimen>
+    <dimen name="ds_space_8">8dp</dimen>
+    <dimen name="ds_space_10">10dp</dimen>
+    <dimen name="ds_space_12">12dp</dimen>
+    <dimen name="ds_space_14">14dp</dimen>
+    <dimen name="ds_space_16">16dp</dimen>
+    <dimen name="ds_space_20">20dp</dimen>
+    <dimen name="ds_space_24">24dp</dimen>
+    <dimen name="ds_space_32">32dp</dimen>
+    <dimen name="ds_space_40">40dp</dimen>
+
+    <dimen name="ds_toolbar_height">56dp</dimen>
+    <dimen name="ds_touch_target">48dp</dimen>
+    <dimen name="ds_button_height">48dp</dimen>
+    <dimen name="ds_input_height">56dp</dimen>
+    <dimen name="ds_icon">24dp</dimen>
+    <dimen name="ds_icon_small">18dp</dimen>
+    <dimen name="ds_dot">6dp</dimen>
+    <dimen name="ds_widget_dot">5dp</dimen>
+
+    <dimen name="ds_radius_card">16dp</dimen>
+    <dimen name="ds_radius_hero">20dp</dimen>
+    <dimen name="ds_radius_control">12dp</dimen>
+    <dimen name="ds_radius_bar">3dp</dimen>
+    <dimen name="ds_radius_widget">24dp</dimen>
+    <dimen name="ds_border">1dp</dimen>
+
+    <dimen name="ds_chart_height">200dp</dimen>
+    <dimen name="ds_bars_height">112dp</dimen>
+    <dimen name="ds_row_snapshot">48dp</dimen>
+    <dimen name="ds_row_recent">48dp</dimen>
+    <dimen name="ds_day_header">32dp</dimen>
+    <dimen name="ds_section_header">48dp</dimen>
+    <dimen name="ds_today_min_height">104dp</dimen>
+    <dimen name="ds_provider_height">48dp</dimen>
+    <dimen name="ds_provider_gap">8dp</dimen>
+    <dimen name="ds_provider_dot">4dp</dimen>
+    <dimen name="ds_latency_icon">14dp</dimen>
+    <dimen name="ds_cost_row">48dp</dimen>
+    <dimen name="ds_cost_row_today">56dp</dimen>
+    <dimen name="ds_provider_note">16dp</dimen>
+
+    <dimen name="ds_widget_2x2_min_width">110dp</dimen>
+    <dimen name="ds_widget_2x2_min_height">110dp</dimen>
+    <dimen name="ds_widget_4x2_min_width">250dp</dimen>
+    <dimen name="ds_widget_4x2_min_height">110dp</dimen>
+</resources>
