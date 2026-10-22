@@ -35,6 +35,7 @@ import com.patchouli.deepseekwidget.logic.CostAggregator
 import com.patchouli.deepseekwidget.logic.SpendCalculator
 import com.patchouli.deepseekwidget.net.CostBucket
 import com.patchouli.deepseekwidget.provider.Provider
+import com.patchouli.deepseekwidget.repo.AnthropicCostsRepository
 import com.patchouli.deepseekwidget.repo.BalanceRepository
 import com.patchouli.deepseekwidget.repo.OpenAiCostsRepository
 import com.patchouli.deepseekwidget.util.Format
@@ -63,6 +64,7 @@ class DashboardFragment : Fragment() {
     private lateinit var stateHint: TextView
     private lateinit var statePrimary: MaterialButton
     private lateinit var stateSecondary: MaterialButton
+    private lateinit var stateTertiary: androidx.appcompat.widget.AppCompatTextView
     private lateinit var dataContainer: View
     private lateinit var openAiData: View
     private lateinit var balanceValue: TextView
@@ -86,6 +88,7 @@ class DashboardFragment : Fragment() {
     private lateinit var openAiDayLabel: TextView
     private lateinit var openAiSpentValue: TextView
     private lateinit var openAiMeta: TextView
+    private lateinit var openAiNote: TextView
     private lateinit var openAiWeekValue: TextView
     private lateinit var openAiWeekCaption: TextView
     private lateinit var openAiMonthValue: TextView
@@ -123,6 +126,7 @@ class DashboardFragment : Fragment() {
         stateHint = view.findViewById(R.id.state_hint)
         statePrimary = view.findViewById(R.id.state_primary)
         stateSecondary = view.findViewById(R.id.state_secondary)
+        stateTertiary = view.findViewById(R.id.state_tertiary)
         dataContainer = view.findViewById(R.id.dashboard_data)
         openAiData = view.findViewById(R.id.openai_data)
         balanceValue = view.findViewById(R.id.balance_value)
@@ -146,6 +150,7 @@ class DashboardFragment : Fragment() {
         openAiDayLabel = view.findViewById(R.id.openai_day_label)
         openAiSpentValue = view.findViewById(R.id.openai_spent_value)
         openAiMeta = view.findViewById(R.id.openai_meta)
+        openAiNote = view.findViewById(R.id.openai_note)
         openAiWeekValue = view.findViewById(R.id.openai_week_value)
         openAiWeekCaption = view.findViewById(R.id.openai_week_caption)
         openAiMonthValue = view.findViewById(R.id.openai_month_value)
@@ -202,7 +207,7 @@ class DashboardFragment : Fragment() {
 
     private fun onProviderSelected(provider: Provider) {
         scrollView.smoothScrollTo(0, 0)
-        val target = if (provider == Provider.OPENAI) openAiData else dataContainer
+        val target = if (provider == Provider.DEEPSEEK) dataContainer else openAiData
         target.alpha = 0f
         render()
         target.animate().alpha(1f).setDuration(120L).start()
@@ -221,6 +226,8 @@ class DashboardFragment : Fragment() {
                 val repo = OpenAiCostsRepository(requireContext())
                 repo.hourlyBucketsSince(0L).isEmpty() && repo.dailyBucketsSince(0L).isEmpty()
             }
+            Provider.CLAUDE ->
+                AnthropicCostsRepository(requireContext()).dailyBucketsSince(0L).isEmpty()
         }
     }
 
@@ -252,6 +259,7 @@ class DashboardFragment : Fragment() {
                 when (provider) {
                     Provider.DEEPSEEK -> BalanceRepository(appContext).refresh()
                     Provider.OPENAI -> OpenAiCostsRepository(appContext).refresh()
+                    Provider.CLAUDE -> AnthropicCostsRepository(appContext).refresh()
                 }
             } finally {
                 mainHandler.post {
@@ -273,6 +281,7 @@ class DashboardFragment : Fragment() {
             null -> showNeutral()
             Provider.DEEPSEEK -> renderDeepSeek(prefs)
             Provider.OPENAI -> renderOpenAi(prefs)
+            Provider.CLAUDE -> renderClaude(prefs)
         }
     }
 
@@ -291,7 +300,7 @@ class DashboardFragment : Fragment() {
             snapshot == null && error == Prefs.ERROR_UNEXPECTED -> showState(EmptyState.UNEXPECTED)
             snapshot == null -> showLoading()
             else -> {
-                showData(openAi = false)
+                showData(Provider.DEEPSEEK)
                 bindData(snapshot, prefs, repository, error)
             }
         }
@@ -472,7 +481,7 @@ class DashboardFragment : Fragment() {
             hourly.isEmpty() && daily.isEmpty() ->
                 showOpenAiState(OpenAiState.NO_DATA)
             else -> {
-                showData(openAi = true)
+                showData(Provider.OPENAI)
                 bindOpenAi(prefs, hourly, daily, error, now, zone)
             }
         }
@@ -487,6 +496,7 @@ class DashboardFragment : Fragment() {
         zone: ZoneId
     ) {
         dataContainer.visibility = View.GONE
+        openAiNote.text = getString(R.string.openai_delay_note)
         val todayLocal = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val todayUtc = Instant.ofEpochMilli(now).atZone(ZoneOffset.UTC).toLocalDate()
         val hourlyToday = hourly.any { overlapsLocalDay(it, todayLocal, zone) }
@@ -710,6 +720,266 @@ class DashboardFragment : Fragment() {
         }
     }
 
+    // --- Claude ---------------------------------------------------------
+
+    private fun renderClaude(prefs: Prefs) {
+        val hasKey = prefs.hasApiKey(Provider.CLAUDE)
+        val error = prefs.getLastError(Provider.CLAUDE)
+        val now = System.currentTimeMillis()
+        val todayUtc = LocalDate.now(ZoneOffset.UTC)
+        val since = todayUtc.minusDays(32)
+            .atStartOfDay(ZoneOffset.UTC).toInstant().epochSecond
+        val daily = AnthropicCostsRepository(requireContext()).dailyBucketsSince(since)
+
+        when {
+            !hasKey -> showClaudeState(OpenAiState.NO_KEY)
+            daily.isEmpty() && error == Prefs.ERROR_AUTH -> showClaudeState(OpenAiState.AUTH)
+            daily.isEmpty() && error == Prefs.ERROR_FORBIDDEN ->
+                showClaudeState(OpenAiState.FORBIDDEN)
+            daily.isEmpty() && error == Prefs.ERROR_NETWORK ->
+                showClaudeState(OpenAiState.NETWORK)
+            daily.isEmpty() && error == Prefs.ERROR_UNEXPECTED ->
+                showClaudeState(OpenAiState.UNEXPECTED)
+            daily.isEmpty() && error == null && isRefreshing -> showLoading()
+            daily.isEmpty() -> showClaudeState(OpenAiState.NO_DATA)
+            else -> {
+                showData(Provider.CLAUDE)
+                bindClaude(prefs, daily, error, now, todayUtc)
+            }
+        }
+    }
+
+    private fun bindClaude(
+        prefs: Prefs,
+        daily: List<CostBucket>,
+        error: String?,
+        now: Long,
+        todayUtc: LocalDate
+    ) {
+        dataContainer.visibility = View.GONE
+        openAiNote.text = getString(R.string.claude_note)
+        openAiDayLabel.text = getString(R.string.openai_spent_today)
+        val byDay = daily
+            .filter { dayOfUtc(it.startTsUtc) in todayUtc.minusDays(32)..todayUtc }
+            .groupBy { dayOfUtc(it.startTsUtc) }
+            .mapValues { (_, buckets) -> buckets.fold(BigDecimal.ZERO) { a, b -> a.add(b.amount) } }
+        val todayAmount = byDay[todayUtc]
+        val latestDay = byDay.keys.maxOrNull()
+        val heroValue = todayAmount ?: (latestDay?.let { byDay[it] } ?: BigDecimal.ZERO)
+        if (todayAmount == null && latestDay != null) {
+            openAiDayLabel.text = getString(
+                R.string.openai_spent_on_day,
+                Format.dayLabel(latestDay).uppercase(Locale.ITALY)
+            )
+        }
+        openAiSpentValue.text = Format.money(heroValue)
+
+        val latestBucket = daily.maxByOrNull { it.endTsUtc }
+        val lastEndMs = (latestBucket?.endTsUtc ?: 0L) * 1000L
+        val ageMs = if (lastEndMs > 0L) {
+            (now - lastEndMs).coerceAtLeast(0L)
+        } else {
+            Long.MAX_VALUE
+        }
+        val metaText = when {
+            latestDay == null -> getString(R.string.openai_no_data_title)
+            ageMs > STALE_MS -> getString(
+                R.string.claude_meta_stale,
+                Format.dayLabel(latestDay)
+            )
+            else -> getString(R.string.claude_meta_until, Format.dayLabel(latestDay))
+        }
+        openAiMeta.text = metaText
+        openAiMeta.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                if (ageMs > WARN_MS || error == Prefs.ERROR_NETWORK) R.color.ds_color_warning
+                else R.color.ds_color_text_tertiary
+            )
+        )
+
+        val weekDays = (6 downTo 0).map { todayUtc.minusDays(it.toLong()) }
+        val weekTotal = weekDays.fold(BigDecimal.ZERO) { acc, day ->
+            acc.add(byDay[day] ?: BigDecimal.ZERO)
+        }
+        val weekWithData = weekDays.count { byDay.containsKey(it) }
+        openAiWeekValue.text = Format.money(weekTotal)
+        if (weekWithData < 7) {
+            openAiWeekCaption.text = getString(R.string.openai_partial_days, weekWithData, 7)
+            openAiWeekCaption.visibility = View.VISIBLE
+        } else {
+            openAiWeekCaption.visibility = View.GONE
+        }
+
+        val monthTotal = CostAggregator.spentCurrentMonthUtc(daily, now)
+        openAiMonthValue.text = Format.money(monthTotal)
+        val monthStart = todayUtc.withDayOfMonth(1)
+        val firstMonthDay = byDay.keys.filter { it in monthStart..todayUtc }.minOrNull()
+        if (firstMonthDay != null && firstMonthDay.isAfter(monthStart)) {
+            openAiMonthCaption.text = getString(
+                R.string.openai_partial_since,
+                Format.dayLabel(firstMonthDay)
+            )
+            openAiMonthCaption.visibility = View.VISIBLE
+        } else {
+            openAiMonthCaption.visibility = View.GONE
+        }
+
+        val chartDays = (13 downTo 0).map { todayUtc.minusDays(it.toLong()) }
+        openAiBars.setCompact(false)
+        openAiBars.setMissingDays(chartDays.filter { !byDay.containsKey(it) }.toSet())
+        openAiBars.setData(chartDays.map { day -> day to (byDay[day] ?: BigDecimal.ZERO) })
+        openAiBars.contentDescription = getString(
+            R.string.history_spend_cd,
+            Format.money(monthTotal),
+            Format.money(byDay.values.maxOrNull() ?: BigDecimal.ZERO),
+            Format.dayLabel(todayUtc)
+        )
+        openAiFooter.text = getString(R.string.claude_footer, prefs.getIntervalMinutes())
+        openAiSpentValue.contentDescription = getString(
+            R.string.dashboard_today_cd,
+            Format.money(heroValue)
+        )
+        renderClaudeBanner(error, latestBucket, latestDay, ageMs)
+    }
+
+    private fun renderClaudeBanner(
+        error: String?,
+        latest: CostBucket?,
+        latestDay: LocalDate?,
+        ageMs: Long
+    ) {
+        val lastDate = latestDay?.let { Format.dayLabel(it) } ?: ""
+        when {
+            error == Prefs.ERROR_FORBIDDEN -> showOpenAiBanner(
+                warning = false,
+                title = getString(R.string.claude_forbidden_title),
+                body = getString(R.string.claude_forbidden_banner),
+                action = getString(R.string.claude_settings),
+                actionOpensSettings = true
+            )
+            error == Prefs.ERROR_AUTH -> showOpenAiBanner(
+                warning = false,
+                title = getString(R.string.openai_auth_title),
+                body = getString(R.string.openai_auth_banner),
+                action = getString(R.string.claude_settings),
+                actionOpensSettings = true
+            )
+            error == Prefs.ERROR_NETWORK -> showOpenAiBanner(
+                warning = true,
+                title = getString(
+                    if (isOnline()) R.string.claude_server_title else R.string.error_offline_title
+                ),
+                body = if (lastDate.isNotBlank()) {
+                    getString(R.string.claude_offline_banner, lastDate)
+                } else {
+                    getString(R.string.error_data_none)
+                },
+                action = getString(R.string.openai_retry),
+                actionOpensSettings = false
+            )
+            error == Prefs.ERROR_UNEXPECTED -> showOpenAiBanner(
+                warning = false,
+                title = getString(R.string.error_unexpected_title),
+                body = getString(R.string.openai_unexpected_banner),
+                action = getString(R.string.openai_retry),
+                actionOpensSettings = false
+            )
+            ageMs > STALE_MS -> showOpenAiBanner(
+                warning = true,
+                title = getString(R.string.openai_stale_title),
+                body = getString(R.string.claude_meta_stale, lastDate),
+                action = getString(R.string.openai_retry),
+                actionOpensSettings = false
+            )
+            else -> openAiBanner.visibility = View.GONE
+        }
+    }
+
+    private fun showClaudeState(state: OpenAiState) {
+        stopSkeleton()
+        loadingContainer.visibility = View.GONE
+        stateContainer.visibility = View.VISIBLE
+        dataContainer.visibility = View.GONE
+        openAiData.visibility = View.GONE
+        stateHint.visibility = View.GONE
+        stateSecondary.visibility = View.GONE
+        stateTertiary.visibility = View.GONE
+        val warning = ContextCompat.getColor(requireContext(), R.color.ds_color_warning)
+        val error = ContextCompat.getColor(requireContext(), R.color.ds_color_error)
+        val secondary = ContextCompat.getColor(requireContext(), R.color.ds_color_text_secondary)
+        when (state) {
+            OpenAiState.NO_KEY -> {
+                stateIcon.setImageResource(R.drawable.ic_key)
+                stateIcon.imageTintList = ColorStateList.valueOf(secondary)
+                stateTitle.text = getString(R.string.claude_no_key_title)
+                stateBody.text = getString(R.string.claude_no_key_body)
+                stateHint.text = getString(R.string.claude_no_key_hint)
+                stateHint.visibility = View.VISIBLE
+                statePrimary.text = getString(R.string.claude_add_admin_key)
+                statePrimary.setOnClickListener { openSettings(Provider.CLAUDE) }
+                swipeRefresh.isEnabled = false
+            }
+            OpenAiState.FORBIDDEN -> {
+                stateIcon.setImageResource(R.drawable.ic_error)
+                stateIcon.imageTintList = ColorStateList.valueOf(error)
+                stateTitle.text = getString(R.string.claude_forbidden_title)
+                stateBody.text = getString(R.string.claude_forbidden_body)
+                statePrimary.text = getString(R.string.claude_settings)
+                statePrimary.setOnClickListener { openSettings(Provider.CLAUDE) }
+                stateSecondary.text = getString(R.string.openai_retry)
+                stateSecondary.visibility = View.VISIBLE
+                stateSecondary.setOnClickListener { refreshFromNetwork() }
+                swipeRefresh.isEnabled = true
+            }
+            OpenAiState.AUTH -> {
+                stateIcon.setImageResource(R.drawable.ic_error)
+                stateIcon.imageTintList = ColorStateList.valueOf(error)
+                stateTitle.text = getString(R.string.openai_auth_title)
+                stateBody.text = getString(R.string.openai_auth_body)
+                statePrimary.text = getString(R.string.claude_settings)
+                statePrimary.setOnClickListener { openSettings(Provider.CLAUDE) }
+                stateSecondary.text = getString(R.string.openai_retry)
+                stateSecondary.visibility = View.VISIBLE
+                stateSecondary.setOnClickListener { refreshFromNetwork() }
+                swipeRefresh.isEnabled = true
+            }
+            OpenAiState.NETWORK -> {
+                stateIcon.setImageResource(R.drawable.ic_cloud_off)
+                stateIcon.imageTintList = ColorStateList.valueOf(warning)
+                stateTitle.text = getString(R.string.openai_network_title)
+                stateBody.text = getString(R.string.openai_network_body)
+                statePrimary.text = getString(R.string.openai_retry)
+                statePrimary.setOnClickListener { refreshFromNetwork() }
+                stateSecondary.text = getString(R.string.claude_settings)
+                stateSecondary.visibility = View.VISIBLE
+                stateSecondary.setOnClickListener { openSettings(Provider.CLAUDE) }
+                swipeRefresh.isEnabled = true
+            }
+            OpenAiState.UNEXPECTED -> {
+                stateIcon.setImageResource(R.drawable.ic_error)
+                stateIcon.imageTintList = ColorStateList.valueOf(error)
+                stateTitle.text = getString(R.string.error_unexpected_title)
+                stateBody.text = getString(R.string.error_unexpected_body)
+                statePrimary.text = getString(R.string.openai_retry)
+                statePrimary.setOnClickListener { refreshFromNetwork() }
+                swipeRefresh.isEnabled = true
+            }
+            OpenAiState.NO_DATA -> {
+                stateIcon.setImageResource(R.drawable.ic_warning)
+                stateIcon.imageTintList = ColorStateList.valueOf(secondary)
+                stateTitle.text = getString(R.string.openai_no_data_title)
+                stateBody.text = getString(R.string.openai_no_data_body)
+                statePrimary.text = getString(R.string.openai_retry)
+                statePrimary.setOnClickListener { refreshFromNetwork() }
+                stateSecondary.text = getString(R.string.claude_settings)
+                stateSecondary.visibility = View.VISIBLE
+                stateSecondary.setOnClickListener { openSettings(Provider.CLAUDE) }
+                swipeRefresh.isEnabled = true
+            }
+        }
+    }
+
     // --- Stati comuni ---------------------------------------------------
 
     private fun showLoading() {
@@ -740,6 +1010,9 @@ class DashboardFragment : Fragment() {
         stateSecondary.text = getString(R.string.provider_configure_openai)
         stateSecondary.visibility = View.VISIBLE
         stateSecondary.setOnClickListener { openSettings(Provider.OPENAI) }
+        stateTertiary.text = getString(R.string.provider_configure_claude)
+        stateTertiary.visibility = View.VISIBLE
+        stateTertiary.setOnClickListener { openSettings(Provider.CLAUDE) }
         swipeRefresh.isEnabled = false
     }
 
@@ -889,14 +1162,14 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    private fun showData(openAi: Boolean) {
+    private fun showData(provider: Provider) {
         stopSkeleton()
         loadingContainer.visibility = View.GONE
         stateContainer.visibility = View.GONE
-        if (openAi) {
+        if (provider != Provider.DEEPSEEK) {
             dataContainer.visibility = View.GONE
             openAiData.visibility = View.VISIBLE
-            swipeRefresh.isEnabled = Prefs(requireContext()).hasApiKey(Provider.OPENAI)
+            swipeRefresh.isEnabled = Prefs(requireContext()).hasApiKey(provider)
         } else {
             openAiData.visibility = View.GONE
             dataContainer.visibility = View.VISIBLE

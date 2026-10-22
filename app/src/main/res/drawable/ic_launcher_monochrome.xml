@@ -5,7 +5,7 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Stesso glifo del foreground, senza scrim e senza sfondo. -->
+    <!-- Solo il glifo: nessuno sfondo e nessuno scrim. Il sistema lo tinge. -->
     <group
         android:scaleX="3.0588235"
         android:scaleY="3.0588235"

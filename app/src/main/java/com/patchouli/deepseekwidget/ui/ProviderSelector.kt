@@ -114,6 +114,7 @@ class ProviderSelector(
     private fun idFor(provider: Provider): Int = when (provider) {
         Provider.DEEPSEEK -> R.id.provider_deepseek
         Provider.OPENAI -> R.id.provider_openai
+        Provider.CLAUDE -> R.id.provider_claude
     }
 
     private fun buttonFor(provider: Provider): MaterialButton = group.findViewById(idFor(provider))
@@ -121,11 +122,13 @@ class ProviderSelector(
     private fun providerFor(id: Int): Provider? = when (id) {
         R.id.provider_deepseek -> Provider.DEEPSEEK
         R.id.provider_openai -> Provider.OPENAI
+        R.id.provider_claude -> Provider.CLAUDE
         else -> null
     }
 
     private fun labelRes(provider: Provider): Int = when (provider) {
         Provider.DEEPSEEK -> R.string.provider_deepseek
         Provider.OPENAI -> R.string.provider_openai
+        Provider.CLAUDE -> R.string.provider_claude
     }
 }

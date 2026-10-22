@@ -1,32 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base scura: tiene i bordi calmi sotto maschera circolare/squircle. -->
-    <color name="ic_launcher_ink">#0E1622</color>
-    <color name="ic_launcher_ink_deep">#080C12</color>
+    <!-- Bianco freddo, non puro: stacca appena dal wallpaper bianco. -->
+    <color name="ic_launcher_background">#F7F9FC</color>
 
-    <!-- DeepSeek: indaco schiarito, ma non elettrico. -->
-    <color name="ic_launcher_deepseek">#5B6DF3</color>
-    <color name="ic_launcher_deepseek_glow">#E05B6DF3</color>
-    <color name="ic_launcher_deepseek_fade">#005B6DF3</color>
+    <!-- Blu elettrico, saturo e ad alto contrasto sul fondo. -->
+    <color name="ic_launcher_blue">#0057FF</color>
 
-    <!-- Claude: terracotta schiarita e ammorbidita. -->
-    <color name="ic_launcher_claude">#D97B5F</color>
-    <color name="ic_launcher_claude_glow">#E0D97B5F</color>
-    <color name="ic_launcher_claude_fade">#00D97B5F</color>
-
-    <!-- OpenAI: verde schiarito, non fluorescente. -->
-    <color name="ic_launcher_openai">#14A37E</color>
-    <color name="ic_launcher_openai_glow">#E014A37E</color>
-    <color name="ic_launcher_openai_fade">#0014A37E</color>
-
-    <!-- Scrim radiale dietro al glifo: quasi impercettibile, non un cerchio netto. -->
-    <color name="ic_launcher_scrim">#47070A10</color>
-    <color name="ic_launcher_scrim_fade">#00070A10</color>
-
-    <!-- Sheen diagonale molto tenue per dare profondita' al fondo. -->
-    <color name="ic_launcher_sheen">#0DFFFFFF</color>
-    <color name="ic_launcher_sheen_fade">#00FFFFFF</color>
-
-    <color name="ic_launcher_foreground">#F2F5F3</color>
+    <!-- Il monochrome e' un mascherino: il sistema applica il proprio tint. -->
     <color name="ic_launcher_monochrome">#FFFFFFFF</color>
 </resources>

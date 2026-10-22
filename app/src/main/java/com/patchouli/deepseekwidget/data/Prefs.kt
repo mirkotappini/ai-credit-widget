@@ -69,6 +69,7 @@ class Prefs(context: Context) {
         return when {
             hasApiKey(Provider.DEEPSEEK) -> Provider.DEEPSEEK
             hasApiKey(Provider.OPENAI) -> Provider.OPENAI
+            hasApiKey(Provider.CLAUDE) -> Provider.CLAUDE
             else -> null
         }
     }
@@ -142,26 +143,31 @@ class Prefs(context: Context) {
     private fun ivKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_IV
         Provider.OPENAI -> KEY_OPENAI_IV
+        Provider.CLAUDE -> KEY_CLAUDE_IV
     }
 
     private fun cipherKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_CIPHERTEXT
         Provider.OPENAI -> KEY_OPENAI_CIPHERTEXT
+        Provider.CLAUDE -> KEY_CLAUDE_CIPHERTEXT
     }
 
     private fun lastSuccessKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_LAST_SUCCESS_TS
         Provider.OPENAI -> KEY_OPENAI_LAST_SUCCESS_TS
+        Provider.CLAUDE -> KEY_CLAUDE_LAST_SUCCESS_TS
     }
 
     private fun lastAttemptKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_LAST_ATTEMPT_TS
         Provider.OPENAI -> KEY_OPENAI_LAST_ATTEMPT_TS
+        Provider.CLAUDE -> KEY_CLAUDE_LAST_ATTEMPT_TS
     }
 
     private fun lastErrorKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_LAST_ERROR
         Provider.OPENAI -> KEY_OPENAI_LAST_ERROR
+        Provider.CLAUDE -> KEY_CLAUDE_LAST_ERROR
     }
 
     companion object {
@@ -179,6 +185,11 @@ class Prefs(context: Context) {
         private const val KEY_OPENAI_LAST_SUCCESS_TS = "openai_last_success_ts"
         private const val KEY_OPENAI_LAST_ATTEMPT_TS = "openai_last_attempt_ts"
         private const val KEY_OPENAI_LAST_ERROR = "openai_last_error"
+        private const val KEY_CLAUDE_IV = "claude_api_key_iv"
+        private const val KEY_CLAUDE_CIPHERTEXT = "claude_api_key_ciphertext"
+        private const val KEY_CLAUDE_LAST_SUCCESS_TS = "claude_last_success_ts"
+        private const val KEY_CLAUDE_LAST_ATTEMPT_TS = "claude_last_attempt_ts"
+        private const val KEY_CLAUDE_LAST_ERROR = "claude_last_error"
         private const val KEY_BELOW_THRESHOLD = "below_threshold"
 
         private const val DEFAULT_THRESHOLD = "10.00"

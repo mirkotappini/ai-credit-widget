@@ -23,4 +23,13 @@
         android:layout_marginStart="@dimen/ds_provider_gap"
         android:layout_weight="1"
         android:text="@string/provider_openai" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/provider_claude"
+        style="@style/Widget.Ds.Button.Toggle"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/ds_provider_height"
+        android:layout_marginStart="@dimen/ds_provider_gap"
+        android:layout_weight="1"
+        android:text="@string/provider_claude" />
 </com.google.android.material.button.MaterialButtonToggleGroup>

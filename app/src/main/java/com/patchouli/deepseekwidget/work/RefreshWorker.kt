@@ -8,6 +8,7 @@ import com.patchouli.deepseekwidget.net.ApiResult
 import com.patchouli.deepseekwidget.net.CostsResult
 import com.patchouli.deepseekwidget.provider.Provider
 import com.patchouli.deepseekwidget.repo.BalanceRepository
+import com.patchouli.deepseekwidget.repo.AnthropicCostsRepository
 import com.patchouli.deepseekwidget.repo.OpenAiCostsRepository
 
 class RefreshWorker(
@@ -20,7 +21,11 @@ class RefreshWorker(
         // DeepSeek ne' WidgetUpdater.
         val forced = inputData.getString(KEY_PROVIDER)?.let { Provider.fromStorage(it) }
         val provider = forced ?: Prefs(applicationContext).getActiveProvider()
-        return if (provider == Provider.OPENAI) refreshOpenAi() else refreshDeepSeek()
+        return when (provider) {
+            Provider.OPENAI -> refreshOpenAi()
+            Provider.CLAUDE -> refreshClaude()
+            Provider.DEEPSEEK -> refreshDeepSeek()
+        }
     }
 
     private fun refreshDeepSeek(): Result =
@@ -31,6 +36,12 @@ class RefreshWorker(
 
     private fun refreshOpenAi(): Result =
         when (OpenAiCostsRepository(applicationContext).refresh()) {
+            is CostsResult.NetworkError -> retryOrGiveUp()
+            else -> Result.success()
+        }
+
+    private fun refreshClaude(): Result =
+        when (AnthropicCostsRepository(applicationContext).refresh()) {
             is CostsResult.NetworkError -> retryOrGiveUp()
             else -> Result.success()
         }

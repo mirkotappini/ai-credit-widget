@@ -29,6 +29,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.patchouli.deepseekwidget.R
 import com.patchouli.deepseekwidget.data.Prefs
+import com.patchouli.deepseekwidget.net.AnthropicCostsApi
 import com.patchouli.deepseekwidget.net.ApiResult
 import com.patchouli.deepseekwidget.net.CostsResult
 import com.patchouli.deepseekwidget.net.DeepSeekApi
@@ -40,6 +41,9 @@ import com.patchouli.deepseekwidget.widget.WidgetUpdater
 import com.patchouli.deepseekwidget.work.RefreshScheduler
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -50,6 +54,7 @@ class SettingsFragment : Fragment() {
     private lateinit var providerNote: TextView
     private lateinit var deepSeekSettings: View
     private lateinit var openAiSettings: View
+    private lateinit var claudeSettings: View
 
     private lateinit var apiKeyLayout: TextInputLayout
     private lateinit var apiKeyInput: TextInputEditText
@@ -79,9 +84,20 @@ class SettingsFragment : Fragment() {
     private lateinit var openAiStatusDot: ImageView
     private lateinit var openAiStatusText: TextView
 
+    private lateinit var claudeKeyLayout: TextInputLayout
+    private lateinit var claudeKeyInput: TextInputEditText
+    private lateinit var claudeKeyHelper: TextView
+    private lateinit var claudeSaveButton: MaterialButton
+    private lateinit var claudeTestButton: MaterialButton
+    private lateinit var claudeRemoveButton: MaterialButton
+    private lateinit var claudeStatusRow: View
+    private lateinit var claudeStatusDot: ImageView
+    private lateinit var claudeStatusText: TextView
+
     private var selectedTab = Provider.DEEPSEEK
     private var isTesting = false
     private var isOpenAiTesting = false
+    private var isClaudeTesting = false
     private var binding = false
 
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -106,6 +122,7 @@ class SettingsFragment : Fragment() {
         providerNote = view.findViewById(R.id.provider_note)
         deepSeekSettings = view.findViewById(R.id.deepseek_settings)
         openAiSettings = view.findViewById(R.id.openai_settings)
+        claudeSettings = view.findViewById(R.id.claude_settings)
 
         apiKeyLayout = view.findViewById(R.id.api_key_layout)
         apiKeyInput = view.findViewById(R.id.api_key_input)
@@ -135,6 +152,16 @@ class SettingsFragment : Fragment() {
         openAiStatusDot = view.findViewById(R.id.openai_status_dot)
         openAiStatusText = view.findViewById(R.id.openai_status)
 
+        claudeKeyLayout = view.findViewById(R.id.claude_key_layout)
+        claudeKeyInput = view.findViewById(R.id.claude_key_input)
+        claudeKeyHelper = view.findViewById(R.id.claude_key_helper)
+        claudeSaveButton = view.findViewById(R.id.claude_save_button)
+        claudeTestButton = view.findViewById(R.id.claude_test_button)
+        claudeRemoveButton = view.findViewById(R.id.claude_remove_button)
+        claudeStatusRow = view.findViewById(R.id.claude_status_row)
+        claudeStatusDot = view.findViewById(R.id.claude_status_dot)
+        claudeStatusText = view.findViewById(R.id.claude_status)
+
         val prefs = Prefs(requireContext())
         selectedTab = savedInstanceState?.getString(KEY_TAB)?.let { Provider.fromStorage(it) }
             ?: arguments?.getString(ARG_PROVIDER)?.let { Provider.fromStorage(it) }
@@ -157,8 +184,10 @@ class SettingsFragment : Fragment() {
 
         statusRow.visibility = View.GONE
         openAiStatusRow.visibility = View.GONE
+        claudeStatusRow.visibility = View.GONE
         apiKeyInput.addTextChangedListener(deepKeyWatcher)
         openAiKeyInput.addTextChangedListener(openAiKeyWatcher)
+        claudeKeyInput.addTextChangedListener(claudeKeyWatcher)
 
         saveButton.setOnClickListener { saveDeepSeekKey() }
         testButton.setOnClickListener { testDeepSeekConnection() }
@@ -168,6 +197,10 @@ class SettingsFragment : Fragment() {
         openAiSaveButton.setOnClickListener { saveOpenAiKey() }
         openAiTestButton.setOnClickListener { testOpenAiConnection() }
         openAiRemoveButton.setOnClickListener { confirmRemoveOpenAiKey() }
+
+        claudeSaveButton.setOnClickListener { saveClaudeKey() }
+        claudeTestButton.setOnClickListener { testClaudeConnection() }
+        claudeRemoveButton.setOnClickListener { confirmRemoveClaudeKey() }
 
         thresholdSlider.addOnChangeListener { _, value, fromUser ->
             updateThresholdLabel(value)
@@ -243,6 +276,15 @@ class SettingsFragment : Fragment() {
         }
     }
 
+    private val claudeKeyWatcher = object : TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+        override fun afterTextChanged(s: Editable?) {
+            if (binding || selectedTab != Provider.CLAUDE) return
+            updateButtons()
+        }
+    }
+
     private fun load() {
         if (!isAdded) return
         binding = true
@@ -251,8 +293,10 @@ class SettingsFragment : Fragment() {
 
         apiKeyInput.setText("")
         openAiKeyInput.setText("")
+        claudeKeyInput.setText("")
         bindDeepSeekFields(prefs)
         bindOpenAiFields(prefs)
+        bindClaudeFields(prefs)
 
         val threshold = prefs.getThreshold()
             .max(BigDecimal.ZERO)
@@ -300,6 +344,18 @@ class SettingsFragment : Fragment() {
         removeKeyButton.visibility = if (hasKey) View.VISIBLE else View.GONE
     }
 
+    private fun bindClaudeFields(prefs: Prefs) {
+        val hasKey = prefs.hasApiKey(Provider.CLAUDE)
+        claudeKeyLayout.hint = getString(
+            if (hasKey) R.string.settings_openai_key_new_hint else R.string.settings_claude_key_hint
+        )
+        claudeKeyHelper.text = getString(
+            if (hasKey) R.string.settings_claude_key_helper_saved
+            else R.string.settings_claude_key_helper_new
+        )
+        claudeRemoveButton.visibility = if (hasKey) View.VISIBLE else View.GONE
+    }
+
     private fun bindOpenAiFields(prefs: Prefs) {
         val hasKey = prefs.hasApiKey(Provider.OPENAI)
         openAiKeyLayout.hint = getString(
@@ -320,6 +376,8 @@ class SettingsFragment : Fragment() {
             if (selectedTab == Provider.DEEPSEEK) View.VISIBLE else View.GONE
         openAiSettings.visibility =
             if (selectedTab == Provider.OPENAI) View.VISIBLE else View.GONE
+        claudeSettings.visibility =
+            if (selectedTab == Provider.CLAUDE) View.VISIBLE else View.GONE
         providerNote.visibility = if (active != null && active != selectedTab) {
             providerNote.text = getString(
                 R.string.provider_note_different,
@@ -339,14 +397,19 @@ class SettingsFragment : Fragment() {
         val prefs = Prefs(requireContext())
         val hasDeepKey = prefs.hasApiKey(Provider.DEEPSEEK)
         val hasOpenAiKey = prefs.hasApiKey(Provider.OPENAI)
+        val hasClaudeKey = prefs.hasApiKey(Provider.CLAUDE)
         val deepText = !apiKeyInput.text.isNullOrBlank()
         val openAiText = !openAiKeyInput.text.isNullOrBlank()
+        val claudeText = !claudeKeyInput.text.isNullOrBlank()
         saveButton.isEnabled = !isTesting && deepText
         testButton.isEnabled = !isTesting && hasDeepKey && !deepText
         removeKeyButton.isEnabled = !isTesting && hasDeepKey
         openAiSaveButton.isEnabled = !isOpenAiTesting && openAiText
         openAiTestButton.isEnabled = !isOpenAiTesting && hasOpenAiKey && !openAiText
         openAiRemoveButton.isEnabled = !isOpenAiTesting && hasOpenAiKey
+        claudeSaveButton.isEnabled = !isClaudeTesting && claudeText
+        claudeTestButton.isEnabled = !isClaudeTesting && hasClaudeKey && !claudeText
+        claudeRemoveButton.isEnabled = !isClaudeTesting && hasClaudeKey
     }
 
     // --- DeepSeek -------------------------------------------------------
@@ -560,8 +623,10 @@ class SettingsFragment : Fragment() {
         key.startsWith("sk-") && !key.startsWith("sk-admin-")
 
     private fun fallbackAfterRemoval(prefs: Prefs, removed: Provider) {
-        val other = if (removed == Provider.DEEPSEEK) Provider.OPENAI else Provider.DEEPSEEK
-        if (prefs.hasApiKey(other)) {
+        val other = Provider.entries.firstOrNull {
+            it != removed && prefs.hasApiKey(it)
+        }
+        if (other != null) {
             prefs.setActiveProvider(other)
             Snackbar.make(
                 requireView(),
@@ -571,6 +636,118 @@ class SettingsFragment : Fragment() {
         } else {
             prefs.clearActiveProvider()
         }
+    }
+
+
+    // --- Claude ---------------------------------------------------------
+
+    private fun saveClaudeKey() {
+        if (!isAdded) return
+        val key = claudeKeyInput.text?.toString()?.trim().orEmpty()
+        if (key.isBlank()) return
+        persistClaudeKey(key)
+    }
+
+    private fun persistClaudeKey(key: String) {
+        val prefs = Prefs(requireContext())
+        if (!prefs.setApiKey(Provider.CLAUDE, key)) {
+            showClaudeStatus(getString(R.string.settings_key_save_error), StatusKind.ERROR)
+            return
+        }
+        prefs.setLastError(null, Provider.CLAUDE)
+        if (prefs.activeProviderOrNull() == null) prefs.setActiveProvider(Provider.CLAUDE)
+        scheduleIfAnyKey()
+        if (prefs.getActiveProvider() == Provider.CLAUDE) {
+            RefreshScheduler.refreshNow(requireContext(), Provider.CLAUDE)
+        }
+        binding = true
+        claudeKeyInput.setText("")
+        binding = false
+        claudeKeyLayout.hint = getString(R.string.settings_openai_key_new_hint)
+        claudeKeyHelper.text = getString(R.string.settings_claude_key_helper_saved)
+        claudeRemoveButton.visibility = View.VISIBLE
+        updateButtons()
+        testClaudeConnection()
+    }
+
+    private fun confirmRemoveClaudeKey() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_openai_remove_title)
+            .setMessage(R.string.settings_claude_remove_body)
+            .setNegativeButton(R.string.settings_cancel, null)
+            .setPositiveButton(R.string.settings_remove_confirm) { _, _ -> removeClaudeKey() }
+            .show()
+    }
+
+    private fun removeClaudeKey() {
+        val prefs = Prefs(requireContext())
+        val wasActive = prefs.activeProviderOrNull() == Provider.CLAUDE
+        prefs.setApiKey(Provider.CLAUDE, "")
+        prefs.setLastError(Prefs.ERROR_MISSING_KEY, Provider.CLAUDE)
+        if (wasActive) fallbackAfterRemoval(prefs, Provider.CLAUDE)
+        scheduleIfAnyKey()
+        load()
+        showClaudeStatus(getString(R.string.settings_key_removed), StatusKind.WARNING)
+    }
+
+    private fun testClaudeConnection() {
+        if (!isAdded || isClaudeTesting) return
+        val key = Prefs(requireContext()).getApiKey(Provider.CLAUDE)
+        if (key.isNullOrBlank()) {
+            showClaudeStatus(getString(R.string.settings_test_missing), StatusKind.WARNING)
+            return
+        }
+        setClaudeTesting(true)
+        showClaudeStatus(getString(R.string.settings_test_running), StatusKind.ACCENT)
+        val monthStart = Instant.now()
+            .atZone(ZoneOffset.UTC)
+            .toLocalDate()
+            .withDayOfMonth(1)
+            .atStartOfDay(ZoneOffset.UTC)
+            .toInstant()
+            .let { DateTimeFormatter.ISO_INSTANT.format(it) }
+        val api = AnthropicCostsApi(maxPages = 1)
+        executor.execute {
+            val result = api.fetch(key, monthStart, limit = 1, bucketWidth = "1d")
+            mainHandler.post {
+                if (!isAdded || view == null) return@post
+                setClaudeTesting(false)
+                when (result) {
+                    is CostsResult.Success -> showClaudeStatus(
+                        getString(R.string.settings_claude_test_success),
+                        StatusKind.POSITIVE
+                    )
+                    CostsResult.Forbidden -> showClaudeStatus(
+                        getString(R.string.settings_claude_test_forbidden),
+                        StatusKind.ERROR
+                    )
+                    CostsResult.Unauthorized -> showClaudeStatus(
+                        getString(R.string.settings_openai_test_auth),
+                        StatusKind.ERROR
+                    )
+                    is CostsResult.NetworkError -> showClaudeStatus(
+                        getString(R.string.settings_test_network),
+                        StatusKind.ERROR
+                    )
+                    is CostsResult.Unexpected -> showClaudeStatus(
+                        getString(R.string.settings_test_unexpected),
+                        StatusKind.WARNING
+                    )
+                    CostsResult.MissingKey -> showClaudeStatus(
+                        getString(R.string.settings_test_missing),
+                        StatusKind.WARNING
+                    )
+                }
+            }
+        }
+    }
+
+    private fun setClaudeTesting(testing: Boolean) {
+        isClaudeTesting = testing
+        claudeTestButton.text = getString(
+            if (testing) R.string.settings_test_running else R.string.settings_test
+        )
+        updateButtons()
     }
 
     // --- Comuni ---------------------------------------------------------
@@ -675,6 +852,10 @@ class SettingsFragment : Fragment() {
         showStatusRow(openAiStatusRow, openAiStatusDot, openAiStatusText, text, kind)
     }
 
+    private fun showClaudeStatus(text: String, kind: StatusKind) {
+        showStatusRow(claudeStatusRow, claudeStatusDot, claudeStatusText, text, kind)
+    }
+
     private fun showStatusRow(
         row: View,
         dot: ImageView,
@@ -699,6 +880,7 @@ class SettingsFragment : Fragment() {
     private fun labelRes(provider: Provider): Int = when (provider) {
         Provider.DEEPSEEK -> R.string.provider_deepseek
         Provider.OPENAI -> R.string.provider_openai
+        Provider.CLAUDE -> R.string.provider_claude
     }
 
     override fun onDestroy() {
