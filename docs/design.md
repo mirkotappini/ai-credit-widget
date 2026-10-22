@@ -1352,12 +1352,12 @@ Prima di considerare la UI finita:
 
 > Sezione di estensione per la v2 multi-provider, aggiunta in coda alla spec.
 
-> **Nota di implementazione (rettifica).** La spec descrive i costi OpenAI come giorni UTC
-> ovunque. In implementazione, "Speso oggi" e "7 giorni" usano i bucket **orari** convertiti
-> nel giorno **locale** (come già fa DeepSeek per il giorno corrente), altrimenti alle 00:30
-> locali il numero mostrerebbe il giorno UTC precedente. Il mese corrente resta su giorni
-> UTC, con etichetta esplicita. Le tabelle di micro-copy sui "giorni UTC" valgono quindi solo
-> per il mese e per i grafici aggregati.
+> **Nota di implementazione (rettifica).** L'API Costs di OpenAI accetta **solo**
+> `bucket_width=1d` (con `1h` risponde 400): non esistono bucket orari. Tutte le
+> metriche OpenAI — "Speso oggi", "7 giorni", mese corrente e grafico — usano quindi
+> giorni **UTC**, come descritto dalla spec. Il giorno UTC corrente è etichettato
+> `SPESO OGGI` e la meta `Oggi in corso · costi fino alle HH:MM UTC` finché il bucket
+> non è chiuso. La conversione nel giorno locale resta solo per DeepSeek.
 
 ### 13.1 Modello di prodotto
 

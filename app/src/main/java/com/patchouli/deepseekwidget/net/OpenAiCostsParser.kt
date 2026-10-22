@@ -70,4 +70,21 @@ object OpenAiCostsParser {
         val nextPage = json.optString("next_page", "").takeIf { it.isNotBlank() && !it.equals("null", true) }
         return CostPage(buckets = buckets, nextPage = nextPage, skipped = skipped)
     }
+
+    /**
+     * Compone il dettaglio di un errore HTTP a partire dal body, es.
+     * `{"error":{"message":"Invalid value for bucket_width","param":"bucket_width"}}`
+     * diventa `HTTP 400: Invalid value for bucket_width`. Non deve mai far fallire
+     * il chiamante: in caso di body assente o non JSON restituisce solo `HTTP <code>`.
+     */
+    fun errorDetail(code: Int, body: String?): String {
+        val fallback = "HTTP $code"
+        if (body.isNullOrBlank()) return fallback
+        val message = try {
+            JSONObject(body).optJSONObject("error")?.optString("message", "")?.trim()
+        } catch (_: Exception) {
+            null
+        }
+        return if (message.isNullOrBlank()) fallback else "$fallback: ${message.take(160)}"
+    }
 }

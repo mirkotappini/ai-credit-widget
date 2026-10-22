@@ -122,7 +122,9 @@
     <string name="settings_test_success">Connessione riuscita. Saldo %1$s.</string>
     <string name="settings_test_auth">Chiave rifiutata. Controlla di averla copiata per intero.</string>
     <string name="settings_test_network">Connessione non riuscita. Controlla la rete.</string>
+    <string name="settings_test_network_detail">Connessione non riuscita (%1$s). Controlla la rete.</string>
     <string name="settings_test_unexpected">Risposta non leggibile. Riprova.</string>
+    <string name="settings_test_unexpected_detail">Risposta non leggibile (%1$s). Riprova.</string>
     <string name="settings_test_missing">Inserisci una chiave.</string>
     <string name="settings_key_save_error">Impossibile salvare la chiave. Riprova.</string>
     <string name="settings_remove_key">Rimuovi chiave</string>

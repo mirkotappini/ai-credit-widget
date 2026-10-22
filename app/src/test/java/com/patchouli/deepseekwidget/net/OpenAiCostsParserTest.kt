@@ -92,4 +92,21 @@ class OpenAiCostsParserTest {
     fun `data assente lancia eccezione`() {
         OpenAiCostsParser.parsePage("""{"object":"page","next_page":null}""")
     }
+
+    @Test
+    fun `errore http riporta il messaggio dell api`() {
+        val body = """{"error":{"message":"Invalid value for 'bucket_width'.","type":"invalid_request_error","param":"bucket_width"}}"""
+
+        assertEquals(
+            "HTTP 400: Invalid value for 'bucket_width'.",
+            OpenAiCostsParser.errorDetail(400, body)
+        )
+    }
+
+    @Test
+    fun `errore http senza body resta solo il codice`() {
+        assertEquals("HTTP 500", OpenAiCostsParser.errorDetail(500, null))
+        assertEquals("HTTP 502", OpenAiCostsParser.errorDetail(502, "  "))
+        assertEquals("HTTP 400", OpenAiCostsParser.errorDetail(400, "<html>bad</html>"))
+    }
 }

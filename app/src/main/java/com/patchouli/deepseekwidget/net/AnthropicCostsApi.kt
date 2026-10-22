@@ -81,7 +81,7 @@ class AnthropicCostsApi(
                 in 200..299 -> HttpOutcome.Body(
                     connection.inputStream.bufferedReader().use { it.readText() }
                 )
-                else -> HttpOutcome.Failure(CostsResult.NetworkError("HTTP $code"))
+                else -> HttpOutcome.Failure(CostsResult.Unexpected("HTTP $code"))
             }
         } catch (e: SocketTimeoutException) {
             HttpOutcome.Failure(CostsResult.NetworkError("timeout"))

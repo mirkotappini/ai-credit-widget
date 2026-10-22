@@ -222,10 +222,8 @@ class DashboardFragment : Fragment() {
         if (prefs.getLastError(provider) != null) return false
         return when (provider) {
             Provider.DEEPSEEK -> BalanceRepository(requireContext()).latestSnapshot() == null
-            Provider.OPENAI -> {
-                val repo = OpenAiCostsRepository(requireContext())
-                repo.hourlyBucketsSince(0L).isEmpty() && repo.dailyBucketsSince(0L).isEmpty()
-            }
+            Provider.OPENAI ->
+                OpenAiCostsRepository(requireContext()).dailyBucketsSince(0L).isEmpty()
             Provider.CLAUDE ->
                 AnthropicCostsRepository(requireContext()).dailyBucketsSince(0L).isEmpty()
         }
@@ -457,62 +455,51 @@ class DashboardFragment : Fragment() {
         val hasKey = prefs.hasApiKey(Provider.OPENAI)
         val error = prefs.getLastError(Provider.OPENAI)
         val now = System.currentTimeMillis()
-        val zone = ZoneId.systemDefault()
         val repo = OpenAiCostsRepository(requireContext())
-        val localSince = LocalDate.now(zone).minusDays(7)
-            .atStartOfDay(zone).toInstant().epochSecond
         val utcSince = LocalDate.now(ZoneOffset.UTC).minusDays(32)
             .atStartOfDay(ZoneOffset.UTC).toInstant().epochSecond
-        val hourly = repo.hourlyBucketsSince(localSince)
         val daily = repo.dailyBucketsSince(utcSince)
 
         when {
             !hasKey -> showOpenAiState(OpenAiState.NO_KEY)
-            hourly.isEmpty() && daily.isEmpty() && error == Prefs.ERROR_AUTH ->
+            daily.isEmpty() && error == Prefs.ERROR_AUTH ->
                 showOpenAiState(OpenAiState.AUTH)
-            hourly.isEmpty() && daily.isEmpty() && error == Prefs.ERROR_FORBIDDEN ->
+            daily.isEmpty() && error == Prefs.ERROR_FORBIDDEN ->
                 showOpenAiState(OpenAiState.FORBIDDEN)
-            hourly.isEmpty() && daily.isEmpty() && error == Prefs.ERROR_NETWORK ->
+            daily.isEmpty() && error == Prefs.ERROR_NETWORK ->
                 showOpenAiState(OpenAiState.NETWORK)
-            hourly.isEmpty() && daily.isEmpty() && error == Prefs.ERROR_UNEXPECTED ->
+            daily.isEmpty() && error == Prefs.ERROR_UNEXPECTED ->
                 showOpenAiState(OpenAiState.UNEXPECTED)
-            hourly.isEmpty() && daily.isEmpty() && error == null && isRefreshing ->
+            daily.isEmpty() && error == null && isRefreshing ->
                 showLoading()
-            hourly.isEmpty() && daily.isEmpty() ->
+            daily.isEmpty() ->
                 showOpenAiState(OpenAiState.NO_DATA)
             else -> {
                 showData(Provider.OPENAI)
-                bindOpenAi(prefs, hourly, daily, error, now, zone)
+                bindOpenAi(prefs, daily, error, now)
             }
         }
     }
 
     private fun bindOpenAi(
         prefs: Prefs,
-        hourly: List<CostBucket>,
         daily: List<CostBucket>,
         error: String?,
-        now: Long,
-        zone: ZoneId
+        now: Long
     ) {
         dataContainer.visibility = View.GONE
         openAiNote.text = getString(R.string.openai_delay_note)
-        val todayLocal = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val todayUtc = Instant.ofEpochMilli(now).atZone(ZoneOffset.UTC).toLocalDate()
-        val hourlyToday = hourly.any { overlapsLocalDay(it, todayLocal, zone) }
         val dailyToday = daily.firstOrNull { dayOfUtc(it.startTsUtc) == todayUtc }
-        val latest = (hourly.maxByOrNull { it.endTsUtc } ?: daily.maxByOrNull { it.endTsUtc })
+        val latest = daily.maxByOrNull { it.endTsUtc }
+        // Il bucket del giorno UTC corrente e' "in corso" finche' non e' chiuso:
+        // l'API restituisce il giorno intero, il valore e' quindi parziale.
+        val todayInProgress = dailyToday != null && dailyToday.endTsUtc * 1000L > now
 
         val heroValue: BigDecimal
-        if (hourlyToday) {
-            heroValue = CostAggregator.spentTodayLocal(hourly, now, zone)
-            openAiDayLabel.text = getString(R.string.openai_spent_today)
-        } else if (dailyToday != null) {
+        if (dailyToday != null) {
             heroValue = dailyToday.amount
-            openAiDayLabel.text = getString(
-                R.string.openai_spent_on_day,
-                Format.utcDayLabel(dailyToday.startTsUtc * 1000L).uppercase(Locale.ITALY)
-            )
+            openAiDayLabel.text = getString(R.string.openai_spent_today)
         } else if (latest != null) {
             heroValue = latest.amount
             openAiDayLabel.text = getString(
@@ -539,9 +526,9 @@ class DashboardFragment : Fragment() {
                 Format.utcDayLabel(lastEndMs),
                 Format.utcTime(lastEndMs)
             )
-            hourlyToday -> getString(
+            todayInProgress -> getString(
                 R.string.openai_meta_today_progress,
-                Format.utcTime(lastEndMs)
+                Format.utcTime(now)
             )
             else -> getString(R.string.openai_meta_costs_until, Format.utcTime(lastEndMs))
         }
@@ -554,12 +541,17 @@ class DashboardFragment : Fragment() {
             )
         )
 
-        val week = CostAggregator.spentLast7DaysLocal(hourly, now, zone)
-        val weekTotal = week.values.fold(BigDecimal.ZERO) { acc, value -> acc.add(value) }
-        val weekDays = week.keys.count { day -> hourly.any { overlapsLocalDay(it, day, zone) } }
+        // 7 giorni su giorni UTC: gli unici bucket disponibili per OpenAI.
+        val weekDays = (6 downTo 0).map { todayUtc.minusDays(it.toLong()) }
+        val weekByDay = daily
+            .filter { dayOfUtc(it.startTsUtc) in weekDays.first()..todayUtc }
+            .groupBy { dayOfUtc(it.startTsUtc) }
+            .mapValues { (_, buckets) -> buckets.fold(BigDecimal.ZERO) { a, b -> a.add(b.amount) } }
+        val weekTotal = weekByDay.values.fold(BigDecimal.ZERO) { acc, value -> acc.add(value) }
+        val weekDaysWithData = weekDays.count { weekByDay.containsKey(it) }
         openAiWeekValue.text = Format.money(weekTotal)
-        if (weekDays < 7) {
-            openAiWeekCaption.text = getString(R.string.openai_partial_days, weekDays, 7)
+        if (weekDaysWithData < 7) {
+            openAiWeekCaption.text = getString(R.string.openai_partial_days, weekDaysWithData, 7)
             openAiWeekCaption.visibility = View.VISIBLE
         } else {
             openAiWeekCaption.text = ""
@@ -605,15 +597,14 @@ class DashboardFragment : Fragment() {
             Format.money(heroValue)
         )
 
-        renderOpenAiBanner(prefs, error, latest, ageMs, hourlyToday)
+        renderOpenAiBanner(prefs, error, latest, ageMs)
     }
 
     private fun renderOpenAiBanner(
         prefs: Prefs,
         error: String?,
         latest: CostBucket?,
-        ageMs: Long,
-        hourlyToday: Boolean
+        ageMs: Long
     ) {
         val lastEndMs = (latest?.endTsUtc ?: 0L) * 1000L
         val lastLabel = if (lastEndMs > 0L) {
@@ -683,9 +674,6 @@ class DashboardFragment : Fragment() {
             }
             else -> {
                 openAiBanner.visibility = View.GONE
-                if (hourlyToday) {
-                    // Oggi parziale: nessun warning aggiuntivo.
-                }
             }
         }
     }
@@ -1280,14 +1268,6 @@ class DashboardFragment : Fragment() {
 
     private fun dayOfUtc(tsSec: Long): LocalDate =
         Instant.ofEpochSecond(tsSec).atZone(ZoneOffset.UTC).toLocalDate()
-
-    private fun overlapsLocalDay(bucket: CostBucket, day: LocalDate, zone: ZoneId): Boolean {
-        val start = day.atStartOfDay(zone).toInstant().toEpochMilli()
-        val end = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val bStart = bucket.startTsUtc * 1000L
-        val bEnd = bucket.endTsUtc * 1000L
-        return bEnd > start && bStart < end
-    }
 
     private fun startSkeleton() {
         if (skeletonAnimator?.isRunning == true) return

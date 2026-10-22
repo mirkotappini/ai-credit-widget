@@ -12,9 +12,10 @@ import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
 
 /**
- * Refresh dei costi OpenAI. Scarica 1h per le ultime 48h e 1d per il mese UTC
- * corrente, salva i bucket e pota oltre 400 giorni. La key non viene mai
- * loggata e nessuna chiamata parte se manca.
+ * Refresh dei costi OpenAI. L'API Costs accetta solo bucket giornalieri
+ * (`bucket_width=1d`, UTC): si scaricano gli ultimi 32 giorni, si salvano i
+ * bucket e si pota oltre 400 giorni. La key non viene mai loggata e nessuna
+ * chiamata parte se manca.
  */
 class OpenAiCostsRepository(
     context: Context,
@@ -36,21 +37,13 @@ class OpenAiCostsRepository(
             return CostsResult.MissingKey
         }
 
-        // 48 bucket orari allineati all'ora UTC.
-        val hourlyStart = (nowSec / 3600L - 48L) * 3600L
-        val hourly = api.fetch(adminKey, hourlyStart, "1h")
-        if (hourly !is CostsResult.Success) return recordFailure(hourly)
-
         // Il mese corrente serve per la metrica UTC; si estende a 32 giorni per
         // coprire grafico 14 giorni e storico 30 giorni a cavallo del mese.
         val monthlyStart = currentMonthStartUtcSec(now)
         val dailyStart = minOf(monthlyStart, ((nowSec - 32L * 86_400L) / 86_400L) * 86_400L)
-        val daily = api.fetch(adminKey, dailyStart, "1d")
+        val daily = api.fetch(adminKey, dailyStart, limit = 31)
         if (daily !is CostsResult.Success) return recordFailure(daily)
 
-        // Prima gli orari, poi i giornalieri: a parita' di start_ts_utc (UTC
-        // midnight) il giornaliero vince, cosi' il mese resta completo.
-        db.upsertCostBuckets(Provider.OPENAI, hourly.buckets)
         db.upsertCostBuckets(Provider.OPENAI, daily.buckets)
         db.pruneCostBuckets(
             Provider.OPENAI,
@@ -59,14 +52,8 @@ class OpenAiCostsRepository(
 
         prefs.setLastSuccessTs(now, Provider.OPENAI)
         prefs.setLastError(null, Provider.OPENAI)
-        return CostsResult.Success(hourly.buckets + daily.buckets)
+        return CostsResult.Success(daily.buckets)
     }
-
-    fun hourlyBucketsSince(sinceTsUtc: Long): List<CostBucket> =
-        db.costBucketsSince(Provider.OPENAI, sinceTsUtc).filter {
-            val width = it.endTsUtc - it.startTsUtc
-            width > 0L && width <= 7_200L
-        }
 
     fun dailyBucketsSince(sinceTsUtc: Long): List<CostBucket> =
         db.costBucketsSince(Provider.OPENAI, sinceTsUtc).filter {

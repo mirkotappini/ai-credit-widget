@@ -525,11 +525,11 @@ class SettingsFragment : Fragment() {
                         StatusKind.ERROR
                     )
                     is ApiResult.NetworkError -> showDeepSeekStatus(
-                        getString(R.string.settings_test_network),
+                        getString(R.string.settings_test_network_detail, result.detail),
                         StatusKind.ERROR
                     )
                     is ApiResult.Unexpected -> showDeepSeekStatus(
-                        getString(R.string.settings_test_unexpected),
+                        getString(R.string.settings_test_unexpected_detail, result.detail),
                         StatusKind.WARNING
                     )
                     ApiResult.MissingKey -> showDeepSeekStatus(
@@ -615,10 +615,10 @@ class SettingsFragment : Fragment() {
         setOpenAiTesting(true)
         showOpenAiStatus(getString(R.string.settings_test_running), StatusKind.ACCENT)
         val nowSec = System.currentTimeMillis() / 1000L
-        val start = (nowSec / 3600L - 1L) * 3600L
+        val start = (nowSec / 86_400L - 7L) * 86_400L
         val api = OpenAiCostsApi(maxPages = 1)
         executor.execute {
-            val result = api.fetch(key, start, "1h", 1)
+            val result = api.fetch(key, start, limit = 1)
             mainHandler.post {
                 if (!isAdded || view == null) return@post
                 setOpenAiTesting(false)
@@ -636,11 +636,11 @@ class SettingsFragment : Fragment() {
                         StatusKind.ERROR
                     )
                     is CostsResult.NetworkError -> showOpenAiStatus(
-                        getString(R.string.settings_test_network),
+                        getString(R.string.settings_test_network_detail, result.detail),
                         StatusKind.ERROR
                     )
                     is CostsResult.Unexpected -> showOpenAiStatus(
-                        getString(R.string.settings_test_unexpected),
+                        getString(R.string.settings_test_unexpected_detail, result.detail),
                         StatusKind.WARNING
                     )
                     CostsResult.MissingKey -> showOpenAiStatus(
@@ -759,11 +759,11 @@ class SettingsFragment : Fragment() {
                         StatusKind.ERROR
                     )
                     is CostsResult.NetworkError -> showClaudeStatus(
-                        getString(R.string.settings_test_network),
+                        getString(R.string.settings_test_network_detail, result.detail),
                         StatusKind.ERROR
                     )
                     is CostsResult.Unexpected -> showClaudeStatus(
-                        getString(R.string.settings_test_unexpected),
+                        getString(R.string.settings_test_unexpected_detail, result.detail),
                         StatusKind.WARNING
                     )
                     CostsResult.MissingKey -> showClaudeStatus(

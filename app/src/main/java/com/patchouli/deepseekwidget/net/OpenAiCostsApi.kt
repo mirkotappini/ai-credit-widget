@@ -14,6 +14,9 @@ import java.net.URLEncoder
  * project key (`sk-proj-...`) risponde 403 con lo scope mancante, che qui
  * diventa [CostsResult.Forbidden] per distinguerlo da una key invalida.
  *
+ * L'endpoint accetta **solo** `bucket_width=1d`: con `1h` risponde 400, quindi la
+ * larghezza del bucket non e' un parametro (e' fissata in [buildUrl]).
+ *
  * La key non viene mai loggata.
  */
 class OpenAiCostsApi(
@@ -24,13 +27,12 @@ class OpenAiCostsApi(
 ) {
 
     /**
-     * Scarica i bucket di costo a partire da [startTimeSec] (epoch secondi).
-     * [bucketWidth] accetta "1d" o "1h"; [limit] e' il numero massimo di bucket per pagina.
+     * Scarica i bucket di costo giornalieri (UTC) a partire da [startTimeSec]
+     * (epoch secondi). [limit] e' il numero massimo di bucket per pagina.
      */
     fun fetch(
         adminKey: String,
         startTimeSec: Long,
-        bucketWidth: String,
         limit: Int? = null
     ): CostsResult {
         val all = ArrayList<CostBucket>()
@@ -38,7 +40,7 @@ class OpenAiCostsApi(
         var pages = 0
 
         while (pages < maxPages) {
-            val url = buildUrl(startTimeSec, bucketWidth, limit, page)
+            val url = buildUrl(startTimeSec, limit, page)
             val response = request(url, adminKey)
             when (response) {
                 is HttpOutcome.Failure -> return response.result
@@ -85,7 +87,14 @@ class OpenAiCostsApi(
                 in 200..299 -> HttpOutcome.Body(
                     connection.inputStream.bufferedReader().use { it.readText() }
                 )
-                else -> HttpOutcome.Failure(CostsResult.NetworkError("HTTP $code"))
+                else -> HttpOutcome.Failure(
+                    CostsResult.Unexpected(
+                        OpenAiCostsParser.errorDetail(
+                            code,
+                            connection.errorStream?.bufferedReader()?.use { it.readText() }
+                        )
+                    )
+                )
             }
         } catch (e: SocketTimeoutException) {
             HttpOutcome.Failure(CostsResult.NetworkError("timeout"))
@@ -98,10 +107,10 @@ class OpenAiCostsApi(
         }
     }
 
-    private fun buildUrl(startTimeSec: Long, bucketWidth: String, limit: Int?, page: String?): String {
+    private fun buildUrl(startTimeSec: Long, limit: Int?, page: String?): String {
         val params = StringBuilder()
             .append("start_time=").append(startTimeSec)
-            .append("&bucket_width=").append(encode(bucketWidth))
+            .append("&bucket_width=1d")
         if (limit != null) params.append("&limit=").append(limit)
         if (page != null) params.append("&page=").append(encode(page))
         return "$endpoint?$params"
