@@ -333,40 +333,73 @@ class SettingsFragment : Fragment() {
     }
 
     private fun bindDeepSeekFields(prefs: Prefs) {
-        val hasKey = prefs.hasApiKey(Provider.DEEPSEEK)
+        val keyState = prefs.keyState(Provider.DEEPSEEK)
+        val hasKey = keyState == Prefs.KeyState.READABLE
         apiKeyLayout.hint = getString(
             if (hasKey) R.string.settings_api_key_new_hint else R.string.settings_api_key_hint
         )
         apiKeyHelper.text = getString(
-            if (hasKey) R.string.settings_api_key_helper_saved
-            else R.string.settings_api_key_helper_new
+            when (keyState) {
+                Prefs.KeyState.READABLE -> R.string.settings_api_key_helper_saved
+                Prefs.KeyState.UNREADABLE -> R.string.settings_key_unreadable
+                Prefs.KeyState.MISSING -> R.string.settings_api_key_helper_new
+            }
         )
-        removeKeyButton.visibility = if (hasKey) View.VISIBLE else View.GONE
+        apiKeyHelper.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                if (keyState == Prefs.KeyState.UNREADABLE) R.color.ds_color_error
+                else R.color.ds_color_text_secondary
+            )
+        )
+        removeKeyButton.visibility = if (keyState != Prefs.KeyState.MISSING) View.VISIBLE else View.GONE
     }
 
     private fun bindClaudeFields(prefs: Prefs) {
-        val hasKey = prefs.hasApiKey(Provider.CLAUDE)
+        val keyState = prefs.keyState(Provider.CLAUDE)
+        val hasKey = keyState == Prefs.KeyState.READABLE
         claudeKeyLayout.hint = getString(
             if (hasKey) R.string.settings_openai_key_new_hint else R.string.settings_claude_key_hint
         )
         claudeKeyHelper.text = getString(
-            if (hasKey) R.string.settings_claude_key_helper_saved
-            else R.string.settings_claude_key_helper_new
+            when (keyState) {
+                Prefs.KeyState.READABLE -> R.string.settings_claude_key_helper_saved
+                Prefs.KeyState.UNREADABLE -> R.string.settings_key_unreadable
+                Prefs.KeyState.MISSING -> R.string.settings_claude_key_helper_new
+            }
         )
-        claudeRemoveButton.visibility = if (hasKey) View.VISIBLE else View.GONE
+        claudeKeyHelper.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                if (keyState == Prefs.KeyState.UNREADABLE) R.color.ds_color_error
+                else R.color.ds_color_text_secondary
+            )
+        )
+        claudeRemoveButton.visibility = if (keyState != Prefs.KeyState.MISSING) View.VISIBLE else View.GONE
     }
 
     private fun bindOpenAiFields(prefs: Prefs) {
-        val hasKey = prefs.hasApiKey(Provider.OPENAI)
+        val keyState = prefs.keyState(Provider.OPENAI)
+        val hasKey = keyState == Prefs.KeyState.READABLE
         openAiKeyLayout.hint = getString(
             if (hasKey) R.string.settings_openai_key_new_hint else R.string.settings_openai_key_hint
         )
         openAiKeyHelper.text = getString(
-            if (hasKey) R.string.settings_openai_key_helper_saved
-            else R.string.settings_openai_key_helper_new
+            when (keyState) {
+                Prefs.KeyState.READABLE -> R.string.settings_openai_key_helper_saved
+                Prefs.KeyState.UNREADABLE -> R.string.settings_key_unreadable
+                Prefs.KeyState.MISSING -> R.string.settings_openai_key_helper_new
+            }
+        )
+        openAiKeyHelper.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                if (keyState == Prefs.KeyState.UNREADABLE) R.color.ds_color_error
+                else R.color.ds_color_text_secondary
+            )
         )
         openAiKeyWarning.visibility = View.GONE
-        openAiRemoveButton.visibility = if (hasKey) View.VISIBLE else View.GONE
+        openAiRemoveButton.visibility = if (keyState != Prefs.KeyState.MISSING) View.VISIBLE else View.GONE
     }
 
     private fun bindProviderTab() {

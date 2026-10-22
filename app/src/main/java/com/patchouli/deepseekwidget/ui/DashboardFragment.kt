@@ -1004,7 +1004,14 @@ class DashboardFragment : Fragment() {
             ContextCompat.getColor(requireContext(), R.color.ds_color_text_secondary)
         )
         stateTitle.text = getString(R.string.provider_none_title)
-        stateBody.text = getString(R.string.provider_none_body)
+        val prefsForState = Prefs(requireContext())
+        val hasUnreadableKey = Provider.entries.any {
+            prefsForState.keyState(it) == Prefs.KeyState.UNREADABLE
+        }
+        stateBody.text = getString(
+            if (hasUnreadableKey) R.string.provider_none_body_unreadable
+            else R.string.provider_none_body
+        )
         statePrimary.text = getString(R.string.provider_configure_deepseek)
         statePrimary.setOnClickListener { openSettings(Provider.DEEPSEEK) }
         stateSecondary.text = getString(R.string.provider_configure_openai)

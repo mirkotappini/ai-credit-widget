@@ -20,6 +20,24 @@ class Prefs(context: Context) {
 
     // --- API key ---------------------------------------------------------
 
+    enum class KeyState {
+        /** Nessuna chiave salvata. */
+        MISSING,
+
+        /** Chiave salvata e decifrabile su questo dispositivo. */
+        READABLE,
+
+        /** Ciphertext presente ma non decifrabile: il Keystore non ha piu' la chiave. */
+        UNREADABLE
+    }
+
+    fun keyState(provider: Provider): KeyState {
+        val ciphertext = prefs.getString(cipherKey(provider), null) ?: return KeyState.MISSING
+        val iv = prefs.getString(ivKey(provider), null) ?: return KeyState.MISSING
+        val plain = KeyStoreCrypto.decrypt(iv, ciphertext) ?: return KeyState.UNREADABLE
+        return if (plain.isBlank()) KeyState.MISSING else KeyState.READABLE
+    }
+
     fun hasApiKey(provider: Provider): Boolean =
         prefs.contains(ivKey(provider)) && prefs.contains(cipherKey(provider))
 

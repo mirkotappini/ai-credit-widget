@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Crediti AI</string>
-    <string name="dashboard_title">Credito</string>
+    <string name="dashboard_title">Crediti AI</string>
     <string name="history_title">Storico</string>
     <string name="settings_title">Impostazioni</string>
     <string name="cd_back">Indietro</string>
@@ -110,6 +110,7 @@
     <string name="settings_api_key_hint">Chiave API</string>
     <string name="settings_api_key_new_hint">Nuova chiave API</string>
     <string name="settings_api_key_helper_new">La chiave resta sul dispositivo, cifrata con Android Keystore.</string>
+    <string name="settings_key_unreadable">La chiave salvata non è più leggibile su questo dispositivo: i dati cifrati non corrispondono più al Keystore. Reinseriscila o rimuovila.</string>
     <string name="settings_api_key_helper_saved">Chiave salvata. Inserisci una nuova chiave solo per sostituirla.</string>
     <string name="settings_api_key_helper_replace">Salva per verificare la nuova chiave.</string>
     <string name="settings_key_saved">Chiave salvata</string>
@@ -206,6 +207,7 @@
     <string name="provider_cd_missing">Provider %1$s, non configurato. Apri le impostazioni %1$s.</string>
     <string name="provider_switched">Provider attivo: %1$s</string>
     <string name="provider_none_title">Nessun provider configurato</string>
+    <string name="provider_none_body_unreadable">Una chiave salvata non è più leggibile su questo dispositivo. Reinseriscila nelle impostazioni.</string>
     <string name="provider_none_body">Aggiungi una chiave DeepSeek, una Admin key OpenAI o una Admin key Claude per iniziare.</string>
     <string name="provider_configure_deepseek">Configura DeepSeek</string>
     <string name="provider_configure_openai">Configura OpenAI</string>
