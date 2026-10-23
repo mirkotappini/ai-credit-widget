@@ -22,3 +22,6 @@ signing.properties
 
 # macOS
 .DS_Store
+
+# Checkpoint locali dell'agente: contengono percorsi di macchina e device, mai in un repo pubblico
+.agents/

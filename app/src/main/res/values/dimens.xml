@@ -43,6 +43,7 @@
     <dimen name="ds_cost_row">48dp</dimen>
     <dimen name="ds_cost_row_today">56dp</dimen>
     <dimen name="ds_provider_note">16dp</dimen>
+    <dimen name="ds_credit_tag_min_height">20dp</dimen>
 
     <dimen name="ds_widget_2x2_min_width">110dp</dimen>
     <dimen name="ds_widget_2x2_min_height">110dp</dimen>

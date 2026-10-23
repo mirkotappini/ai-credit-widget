@@ -55,6 +55,7 @@ class Prefs(context: Context) {
                 .remove(cipherKey(provider))
                 .remove(ivKey(provider))
                 .apply()
+            if (provider == Provider.OPENAI) resetOpenAiCreditForKeyChange()
             return true
         }
         val encrypted = KeyStoreCrypto.encrypt(plaintext.trim()) ?: return false
@@ -62,6 +63,7 @@ class Prefs(context: Context) {
             .putString(ivKey(provider), encrypted.ivBase64)
             .putString(cipherKey(provider), encrypted.ciphertextBase64)
             .apply()
+        if (provider == Provider.OPENAI) resetOpenAiCreditForKeyChange()
         return true
     }
 
@@ -87,7 +89,6 @@ class Prefs(context: Context) {
         return when {
             hasApiKey(Provider.DEEPSEEK) -> Provider.DEEPSEEK
             hasApiKey(Provider.OPENAI) -> Provider.OPENAI
-            hasApiKey(Provider.CLAUDE) -> Provider.CLAUDE
             else -> null
         }
     }
@@ -156,36 +157,202 @@ class Prefs(context: Context) {
         }.apply()
     }
 
+    // --- Credito residuo OpenAI (v1.1.4) --------------------------------
+    // Solo OpenAI. Gli importi sono salvati come stringa decimale canonica
+    // (BigDecimal.toPlainString) e riletti con toBigDecimalOrNull, cosi' un
+    // valore corrotto diventa null invece di far fallire il chiamante.
+
+    /** Stato di autenticazione dell'endpoint credito, persistito tra i refresh. */
+    enum class CreditAuthState {
+        NONE,
+        UNAUTHORIZED,
+        FORBIDDEN
+    }
+
+    // Ancora manuale: importo dichiarato dall'utente + data di riferimento.
+
+    fun getOpenAiCreditAnchorUsd(): BigDecimal? =
+        decimalOrNull(KEY_OPENAI_CREDIT_ANCHOR_USD)
+
+    fun getOpenAiCreditAnchorTs(): Long =
+        prefs.getLong(KEY_OPENAI_CREDIT_ANCHOR_TS, 0L)
+
+    /** Salva l'ancora; [amountUsd] null o [refTs] non positiva rimuovono il campo. */
+    fun setOpenAiCreditAnchor(amountUsd: BigDecimal?, refTs: Long) {
+        val editor = prefs.edit()
+        if (amountUsd == null) {
+            editor.remove(KEY_OPENAI_CREDIT_ANCHOR_USD)
+        } else {
+            editor.putString(KEY_OPENAI_CREDIT_ANCHOR_USD, amountUsd.toPlainString())
+        }
+        if (refTs <= 0L) {
+            editor.remove(KEY_OPENAI_CREDIT_ANCHOR_TS)
+        } else {
+            editor.putLong(KEY_OPENAI_CREDIT_ANCHOR_TS, refTs)
+        }
+        editor.apply()
+    }
+
+    fun clearOpenAiCreditAnchor() {
+        prefs.edit()
+            .remove(KEY_OPENAI_CREDIT_ANCHOR_USD)
+            .remove(KEY_OPENAI_CREDIT_ANCHOR_TS)
+            .apply()
+    }
+
+    // Cache dell'ultimo valore reale letto dall'endpoint.
+
+    fun getOpenAiCreditRealUsd(): BigDecimal? =
+        decimalOrNull(KEY_OPENAI_CREDIT_REAL_USD)
+
+    fun getOpenAiCreditRealGrantedUsd(): BigDecimal? =
+        decimalOrNull(KEY_OPENAI_CREDIT_REAL_GRANTED_USD)
+
+    fun getOpenAiCreditRealUsedUsd(): BigDecimal? =
+        decimalOrNull(KEY_OPENAI_CREDIT_REAL_USED_USD)
+
+    fun getOpenAiCreditRealTs(): Long =
+        prefs.getLong(KEY_OPENAI_CREDIT_REAL_TS, 0L)
+
+    fun setOpenAiCreditReal(
+        availableUsd: BigDecimal,
+        grantedUsd: BigDecimal?,
+        usedUsd: BigDecimal?,
+        ts: Long
+    ) {
+        val editor = prefs.edit()
+            .putString(KEY_OPENAI_CREDIT_REAL_USD, availableUsd.toPlainString())
+            .putLong(KEY_OPENAI_CREDIT_REAL_TS, ts)
+        if (grantedUsd == null) {
+            editor.remove(KEY_OPENAI_CREDIT_REAL_GRANTED_USD)
+        } else {
+            editor.putString(KEY_OPENAI_CREDIT_REAL_GRANTED_USD, grantedUsd.toPlainString())
+        }
+        if (usedUsd == null) {
+            editor.remove(KEY_OPENAI_CREDIT_REAL_USED_USD)
+        } else {
+            editor.putString(KEY_OPENAI_CREDIT_REAL_USED_USD, usedUsd.toPlainString())
+        }
+        editor.apply()
+    }
+
+    fun clearOpenAiCreditReal() {
+        prefs.edit()
+            .remove(KEY_OPENAI_CREDIT_REAL_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_GRANTED_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_USED_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_TS)
+            .apply()
+    }
+
+    // Cooldown dopo un tentativo fallito, per non martellare l'endpoint.
+
+    fun getOpenAiCreditFailedTs(): Long =
+        prefs.getLong(KEY_OPENAI_CREDIT_FAILED_TS, 0L)
+
+    fun setOpenAiCreditFailedTs(ts: Long) {
+        prefs.edit().putLong(KEY_OPENAI_CREDIT_FAILED_TS, ts).apply()
+    }
+
+    fun clearOpenAiCreditFailed() {
+        prefs.edit().remove(KEY_OPENAI_CREDIT_FAILED_TS).apply()
+    }
+
+    /**
+     * True se e' passato abbastanza tempo dall'ultimo fallimento (o non c'e'
+     * stato un fallimento). Con orologio spostato indietro si ritenta: meglio
+     * una richiesta in piu' che restare bloccati per sempre.
+     */
+    fun shouldRetryOpenAiCredit(
+        now: Long = System.currentTimeMillis(),
+        cooldownMs: Long = OPENAI_CREDIT_RETRY_MS
+    ): Boolean {
+        val failed = getOpenAiCreditFailedTs()
+        if (failed <= 0L || now < failed) return true
+        return now - failed >= cooldownMs
+    }
+
+    fun getOpenAiCreditAuthState(): CreditAuthState =
+        when (prefs.getString(KEY_OPENAI_CREDIT_AUTH_STATE, null)) {
+            STATE_UNAUTHORIZED -> CreditAuthState.UNAUTHORIZED
+            STATE_FORBIDDEN -> CreditAuthState.FORBIDDEN
+            else -> CreditAuthState.NONE
+        }
+
+    fun setOpenAiCreditAuthState(state: CreditAuthState) {
+        val editor = prefs.edit()
+        when (state) {
+            CreditAuthState.NONE -> editor.remove(KEY_OPENAI_CREDIT_AUTH_STATE)
+            CreditAuthState.UNAUTHORIZED ->
+                editor.putString(KEY_OPENAI_CREDIT_AUTH_STATE, STATE_UNAUTHORIZED)
+            CreditAuthState.FORBIDDEN ->
+                editor.putString(KEY_OPENAI_CREDIT_AUTH_STATE, STATE_FORBIDDEN)
+        }
+        editor.apply()
+    }
+
+    fun clearOpenAiCreditAuthState() {
+        prefs.edit().remove(KEY_OPENAI_CREDIT_AUTH_STATE).apply()
+    }
+
+    /** Cancella ancora, cache, cooldown e stato di autenticazione del credito OpenAI. */
+    fun clearOpenAiCredit() {
+        prefs.edit()
+            .remove(KEY_OPENAI_CREDIT_ANCHOR_USD)
+            .remove(KEY_OPENAI_CREDIT_ANCHOR_TS)
+            .remove(KEY_OPENAI_CREDIT_REAL_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_GRANTED_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_USED_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_TS)
+            .remove(KEY_OPENAI_CREDIT_FAILED_TS)
+            .remove(KEY_OPENAI_CREDIT_AUTH_STATE)
+            .apply()
+    }
+
+    private fun decimalOrNull(key: String): BigDecimal? =
+        prefs.getString(key, null)?.toBigDecimalOrNull()
+
+    /**
+     * Una nuova key OpenAI puo' appartenere a un'altra organizzazione: invalida
+     * stato auth, cooldown e cache reale. L'ancora manuale resta, e' un dato
+     * inserito dall'utente e non dipende dalla key.
+     */
+    private fun resetOpenAiCreditForKeyChange() {
+        prefs.edit()
+            .remove(KEY_OPENAI_CREDIT_AUTH_STATE)
+            .remove(KEY_OPENAI_CREDIT_FAILED_TS)
+            .remove(KEY_OPENAI_CREDIT_REAL_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_GRANTED_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_USED_USD)
+            .remove(KEY_OPENAI_CREDIT_REAL_TS)
+            .apply()
+    }
+
     // --- Chiavi prefs ----------------------------------------------------
 
     private fun ivKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_IV
         Provider.OPENAI -> KEY_OPENAI_IV
-        Provider.CLAUDE -> KEY_CLAUDE_IV
     }
 
     private fun cipherKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_CIPHERTEXT
         Provider.OPENAI -> KEY_OPENAI_CIPHERTEXT
-        Provider.CLAUDE -> KEY_CLAUDE_CIPHERTEXT
     }
 
     private fun lastSuccessKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_LAST_SUCCESS_TS
         Provider.OPENAI -> KEY_OPENAI_LAST_SUCCESS_TS
-        Provider.CLAUDE -> KEY_CLAUDE_LAST_SUCCESS_TS
     }
 
     private fun lastAttemptKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_LAST_ATTEMPT_TS
         Provider.OPENAI -> KEY_OPENAI_LAST_ATTEMPT_TS
-        Provider.CLAUDE -> KEY_CLAUDE_LAST_ATTEMPT_TS
     }
 
     private fun lastErrorKey(provider: Provider): String = when (provider) {
         Provider.DEEPSEEK -> KEY_LAST_ERROR
         Provider.OPENAI -> KEY_OPENAI_LAST_ERROR
-        Provider.CLAUDE -> KEY_CLAUDE_LAST_ERROR
     }
 
     companion object {
@@ -203,11 +370,6 @@ class Prefs(context: Context) {
         private const val KEY_OPENAI_LAST_SUCCESS_TS = "openai_last_success_ts"
         private const val KEY_OPENAI_LAST_ATTEMPT_TS = "openai_last_attempt_ts"
         private const val KEY_OPENAI_LAST_ERROR = "openai_last_error"
-        private const val KEY_CLAUDE_IV = "claude_api_key_iv"
-        private const val KEY_CLAUDE_CIPHERTEXT = "claude_api_key_ciphertext"
-        private const val KEY_CLAUDE_LAST_SUCCESS_TS = "claude_last_success_ts"
-        private const val KEY_CLAUDE_LAST_ATTEMPT_TS = "claude_last_attempt_ts"
-        private const val KEY_CLAUDE_LAST_ERROR = "claude_last_error"
         private const val KEY_BELOW_THRESHOLD = "below_threshold"
 
         private const val DEFAULT_THRESHOLD = "10.00"
@@ -218,5 +380,27 @@ class Prefs(context: Context) {
         const val ERROR_FORBIDDEN = "forbidden"
         const val ERROR_NETWORK = "network"
         const val ERROR_UNEXPECTED = "unexpected"
+
+        // Credito residuo OpenAI (v1.1.4).
+        private const val KEY_OPENAI_CREDIT_ANCHOR_USD = "openai_credit_anchor_usd"
+        private const val KEY_OPENAI_CREDIT_ANCHOR_TS = "openai_credit_anchor_ts"
+        private const val KEY_OPENAI_CREDIT_REAL_USD = "openai_credit_real_usd"
+        private const val KEY_OPENAI_CREDIT_REAL_GRANTED_USD =
+            "openai_credit_real_granted_usd"
+        private const val KEY_OPENAI_CREDIT_REAL_USED_USD = "openai_credit_real_used_usd"
+        private const val KEY_OPENAI_CREDIT_REAL_TS = "openai_credit_real_ts"
+        private const val KEY_OPENAI_CREDIT_FAILED_TS = "openai_credit_failed_ts"
+        private const val KEY_OPENAI_CREDIT_AUTH_STATE = "openai_credit_auth_state"
+        private const val STATE_UNAUTHORIZED = "unauthorized"
+        private const val STATE_FORBIDDEN = "forbidden"
+
+        /**
+         * Eta' oltre la quale un valore reale e' considerato vecchio dalla UI.
+         * Non e' una scadenza: il valore resta valido e viene comunque mostrato.
+         */
+        const val OPENAI_CREDIT_STALE_MS = 36L * 60L * 60L * 1000L
+
+        /** Dopo un fallimento non si ritenta l'endpoint prima di 24h. */
+        const val OPENAI_CREDIT_RETRY_MS = 24L * 60L * 60L * 1000L
     }
 }

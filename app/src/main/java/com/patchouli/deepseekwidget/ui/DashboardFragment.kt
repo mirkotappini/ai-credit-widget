@@ -4,6 +4,8 @@ import android.animation.ValueAnimator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.res.ColorStateList
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
@@ -12,7 +14,9 @@ import android.os.Looper
 import android.provider.Settings
 import android.text.Spannable
 import android.text.SpannableString
+import android.text.TextPaint
 import android.text.style.ForegroundColorSpan
+import android.text.style.MetricAffectingSpan
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.View
@@ -21,6 +25,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -34,10 +39,14 @@ import com.patchouli.deepseekwidget.data.Snapshot
 import com.patchouli.deepseekwidget.logic.CostAggregator
 import com.patchouli.deepseekwidget.logic.SpendCalculator
 import com.patchouli.deepseekwidget.net.CostBucket
+import com.patchouli.deepseekwidget.net.CostsResult
 import com.patchouli.deepseekwidget.provider.Provider
-import com.patchouli.deepseekwidget.repo.AnthropicCostsRepository
 import com.patchouli.deepseekwidget.repo.BalanceRepository
+import com.patchouli.deepseekwidget.repo.CreditInfo
+import com.patchouli.deepseekwidget.repo.CreditSource
 import com.patchouli.deepseekwidget.repo.OpenAiCostsRepository
+import com.patchouli.deepseekwidget.repo.OpenAiCreditRefreshMode
+import com.patchouli.deepseekwidget.repo.OpenAiCreditRepository
 import com.patchouli.deepseekwidget.util.Format
 import com.patchouli.deepseekwidget.view.BalanceSplitView
 import com.patchouli.deepseekwidget.view.DailySpendChartView
@@ -46,6 +55,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -64,7 +74,6 @@ class DashboardFragment : Fragment() {
     private lateinit var stateHint: TextView
     private lateinit var statePrimary: MaterialButton
     private lateinit var stateSecondary: MaterialButton
-    private lateinit var stateTertiary: androidx.appcompat.widget.AppCompatTextView
     private lateinit var dataContainer: View
     private lateinit var openAiData: View
     private lateinit var balanceValue: TextView
@@ -101,6 +110,13 @@ class DashboardFragment : Fragment() {
     private lateinit var openAiBannerBody: TextView
     private lateinit var openAiBannerAction: MaterialButton
 
+    private lateinit var openAiCreditCard: View
+    private lateinit var openAiCreditTag: TextView
+    private lateinit var openAiCreditValue: TextView
+    private lateinit var openAiCreditRef: TextView
+    private lateinit var openAiCreditNote: TextView
+    private lateinit var openAiCreditAction: MaterialButton
+
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isRefreshing = false
@@ -126,7 +142,6 @@ class DashboardFragment : Fragment() {
         stateHint = view.findViewById(R.id.state_hint)
         statePrimary = view.findViewById(R.id.state_primary)
         stateSecondary = view.findViewById(R.id.state_secondary)
-        stateTertiary = view.findViewById(R.id.state_tertiary)
         dataContainer = view.findViewById(R.id.dashboard_data)
         openAiData = view.findViewById(R.id.openai_data)
         balanceValue = view.findViewById(R.id.balance_value)
@@ -162,6 +177,13 @@ class DashboardFragment : Fragment() {
         openAiBannerTitle = view.findViewById(R.id.openai_banner_title)
         openAiBannerBody = view.findViewById(R.id.openai_banner_body)
         openAiBannerAction = view.findViewById(R.id.openai_banner_action)
+
+        openAiCreditCard = view.findViewById(R.id.openai_credit_card)
+        openAiCreditTag = view.findViewById(R.id.openai_credit_tag)
+        openAiCreditValue = view.findViewById(R.id.openai_credit_value)
+        openAiCreditRef = view.findViewById(R.id.openai_credit_ref)
+        openAiCreditNote = view.findViewById(R.id.openai_credit_note)
+        openAiCreditAction = view.findViewById(R.id.openai_credit_action)
 
         providerSelector = ProviderSelector(
             group = providerGroup,
@@ -224,8 +246,6 @@ class DashboardFragment : Fragment() {
             Provider.DEEPSEEK -> BalanceRepository(requireContext()).latestSnapshot() == null
             Provider.OPENAI ->
                 OpenAiCostsRepository(requireContext()).dailyBucketsSince(0L).isEmpty()
-            Provider.CLAUDE ->
-                AnthropicCostsRepository(requireContext()).dailyBucketsSince(0L).isEmpty()
         }
     }
 
@@ -256,8 +276,15 @@ class DashboardFragment : Fragment() {
             try {
                 when (provider) {
                     Provider.DEEPSEEK -> BalanceRepository(appContext).refresh()
-                    Provider.OPENAI -> OpenAiCostsRepository(appContext).refresh()
-                    Provider.CLAUDE -> AnthropicCostsRepository(appContext).refresh()
+                    Provider.OPENAI -> {
+                        val result = OpenAiCostsRepository(appContext).refresh()
+                        // Il credito si aggiorna solo dopo un refresh costi riuscito
+                        // e l'esito non influenza la UI.
+                        if (result is CostsResult.Success) {
+                            OpenAiCreditRepository(appContext)
+                                .refresh(OpenAiCreditRefreshMode.NORMAL)
+                        }
+                    }
                 }
             } finally {
                 mainHandler.post {
@@ -279,7 +306,6 @@ class DashboardFragment : Fragment() {
             null -> showNeutral()
             Provider.DEEPSEEK -> renderDeepSeek(prefs)
             Provider.OPENAI -> renderOpenAi(prefs)
-            Provider.CLAUDE -> renderClaude(prefs)
         }
     }
 
@@ -598,6 +624,210 @@ class DashboardFragment : Fragment() {
         )
 
         renderOpenAiBanner(prefs, error, latest, ageMs)
+        bindOpenAiCredit(OpenAiCreditRepository(requireContext()).current(now))
+    }
+
+    /**
+     * Credito residuo OpenAI: secondario rispetto al costo del giorno.
+     * Il reale in cache vince sempre sulla stima. Senza nessuno dei due la card
+     * resta visibile con lo stato "da impostare": nasconderla faceva sembrare
+     * che la funzione non esistesse. Nessuna richiesta di rete qui.
+     */
+    private fun bindOpenAiCredit(info: CreditInfo) {
+        val value = info.availableUsd
+        openAiCreditCard.visibility = View.VISIBLE
+        if (info.source == CreditSource.NONE || value == null) {
+            bindMissingCredit()
+            return
+        }
+        openAiCreditAction.visibility = View.GONE
+        openAiCreditValue.text = Format.money(value)
+
+        when (info.source) {
+            CreditSource.REAL -> bindRealCredit(info, value)
+            CreditSource.ESTIMATE -> bindEstimateCredit(info, value)
+            CreditSource.NONE -> Unit
+        }
+    }
+
+    /**
+     * Saldo reale non leggibile e nessun riferimento salvato: si dichiara cosa
+     * manca e si offre l'azione, invece di lasciare un vuoto.
+     */
+    private fun bindMissingCredit() {
+        applyCreditTag(
+            text = getString(R.string.openai_credit_tag_missing),
+            textColor = R.color.ds_color_text_secondary,
+            background = R.color.ds_color_surface_high,
+            stroke = R.color.ds_color_border
+        )
+        openAiCreditValue.text = getString(R.string.openai_credit_missing_value)
+        openAiCreditRef.visibility = View.GONE
+        openAiCreditNote.text = getString(R.string.openai_credit_missing_note)
+        openAiCreditAction.visibility = View.VISIBLE
+        openAiCreditAction.setOnClickListener {
+            (activity as? MainActivity)?.showSettings(Provider.OPENAI, focusCredit = true)
+        }
+        openAiCreditCard.contentDescription = getString(R.string.openai_credit_cd_missing)
+        openAiCreditValue.contentDescription = null
+        openAiCreditTag.contentDescription = null
+        openAiCreditRef.contentDescription = null
+        openAiCreditNote.contentDescription = null
+    }
+
+    private fun bindRealCredit(info: CreditInfo, value: BigDecimal) {
+        val stale = info.asOfTs > 0L &&
+            System.currentTimeMillis() - info.asOfTs > Prefs.OPENAI_CREDIT_STALE_MS
+        val shortDate = Format.utcDayLabel(info.asOfTs)
+        val cdDate = fullDate(info.asOfTs)
+        applyCreditTag(
+            text = getString(R.string.openai_credit_tag_real),
+            textColor = R.color.ds_color_text_secondary,
+            background = R.color.ds_color_surface_high,
+            stroke = R.color.ds_color_border
+        )
+        openAiCreditRef.visibility = View.GONE
+        openAiCreditNote.text = if (stale) {
+            getString(R.string.openai_credit_note_real_stale, shortDate)
+        } else {
+            getString(R.string.openai_credit_note_real)
+        }
+        val formatted = Format.money(value)
+        openAiCreditCard.contentDescription = if (stale) {
+            getString(R.string.openai_credit_cd_real_stale, cdDate, formatted)
+        } else {
+            getString(R.string.openai_credit_cd_real, formatted)
+        }
+        // La data nella caption resta leggibile anche a font scale 1.3.
+        if (stale) openAiCreditNote.text = monoParts(openAiCreditNote.text, shortDate)
+        openAiCreditValue.contentDescription = null
+        openAiCreditTag.contentDescription = null
+        openAiCreditRef.contentDescription = null
+        openAiCreditNote.contentDescription = null
+    }
+
+    private fun bindEstimateCredit(info: CreditInfo, value: BigDecimal) {
+        val prefs = Prefs(requireContext())
+        val anchorTs = info.anchorTs ?: 0L
+        val anchorUsd = prefs.getOpenAiCreditAnchorUsd()
+        val anchorDay = Instant.ofEpochMilli(anchorTs).atZone(ZoneOffset.UTC).toLocalDate()
+        val todayUtc = Instant.ofEpochMilli(info.asOfTs).atZone(ZoneOffset.UTC).toLocalDate()
+        val anchorToday = anchorDay == todayUtc
+        val anchorLabel = Format.dayLabel(anchorDay)
+        val formatted = Format.money(value)
+        val anchorFormatted = anchorUsd?.let { Format.money(it) } ?: formatted
+
+        applyCreditTag(
+            text = getString(R.string.openai_credit_tag_estimate),
+            textColor = R.color.ds_color_warning,
+            background = R.color.ds_color_warning_container,
+            stroke = R.color.ds_color_warning
+        )
+
+        if (value.signum() < 0) {
+            val overspent = Format.money(value.abs())
+            openAiCreditRef.visibility = View.VISIBLE
+            openAiCreditRef.text = getString(
+                R.string.openai_credit_ref,
+                anchorFormatted,
+                anchorLabel
+            )
+            openAiCreditNote.text = getString(R.string.openai_credit_overspent, overspent)
+            openAiCreditCard.contentDescription = getString(
+                R.string.openai_credit_cd_negative,
+                overspent,
+                overspent
+            )
+        } else if (anchorToday) {
+            openAiCreditRef.visibility = View.VISIBLE
+            openAiCreditRef.text = getString(R.string.openai_credit_ref_today)
+            openAiCreditNote.text = getString(R.string.openai_credit_note_estimate)
+            openAiCreditCard.contentDescription = getString(
+                R.string.openai_credit_cd_estimate_today,
+                formatted
+            )
+        } else {
+            openAiCreditRef.visibility = View.VISIBLE
+            openAiCreditRef.text = getString(
+                R.string.openai_credit_ref,
+                anchorFormatted,
+                anchorLabel
+            )
+            openAiCreditNote.text = getString(R.string.openai_credit_note_estimate)
+            openAiCreditCard.contentDescription = getString(
+                R.string.openai_credit_cd_estimate,
+                formatted,
+                anchorFormatted,
+                fullDate(anchorTs)
+            )
+        }
+
+        // Importo e data del riferimento in mono dentro la caption.
+        openAiCreditRef.text = if (anchorToday && value.signum() >= 0) {
+            openAiCreditRef.text
+        } else {
+            monoParts(openAiCreditRef.text, anchorFormatted, anchorLabel)
+        }
+        openAiCreditValue.contentDescription = null
+        openAiCreditTag.contentDescription = null
+        openAiCreditRef.contentDescription = null
+        openAiCreditNote.contentDescription = null
+    }
+
+    private fun applyCreditTag(
+        text: String,
+        textColor: Int,
+        background: Int,
+        stroke: Int
+    ) {
+        val context = requireContext()
+        openAiCreditTag.text = text
+        openAiCreditTag.setTextColor(ContextCompat.getColor(context, textColor))
+        val pill = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = resources.getDimension(R.dimen.ds_radius_control)
+            setColor(ContextCompat.getColor(context, background))
+            setStroke(
+                resources.getDimensionPixelSize(R.dimen.ds_border),
+                ContextCompat.getColor(context, stroke)
+            )
+        }
+        openAiCreditTag.background = pill
+    }
+
+    private fun monoParts(text: CharSequence, vararg parts: String): CharSequence {
+        val full = text.toString()
+        val span = SpannableString(full)
+        val typeface = ResourcesCompat.getFont(requireContext(), R.font.plex_mono_regular)
+            ?: Typeface.MONOSPACE
+        var from = 0
+        for (part in parts) {
+            if (part.isEmpty()) continue
+            val start = full.indexOf(part, from)
+            if (start < 0) continue
+            span.setSpan(
+                MonoTypefaceSpan(typeface),
+                start,
+                start + part.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            from = start + part.length
+        }
+        return span
+    }
+
+    /** Data estesa per TalkBack: "12 ottobre", mai "12/10". */
+    private fun fullDate(ts: Long): String =
+        Instant.ofEpochMilli(ts).atZone(ZoneOffset.UTC).format(FULL_DATE_FORMATTER)
+
+    private class MonoTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
+        override fun updateDrawState(tp: TextPaint) {
+            tp.typeface = typeface
+        }
+
+        override fun updateMeasureState(tp: TextPaint) {
+            tp.typeface = typeface
+        }
     }
 
     private fun renderOpenAiBanner(
@@ -708,266 +938,6 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    // --- Claude ---------------------------------------------------------
-
-    private fun renderClaude(prefs: Prefs) {
-        val hasKey = prefs.hasApiKey(Provider.CLAUDE)
-        val error = prefs.getLastError(Provider.CLAUDE)
-        val now = System.currentTimeMillis()
-        val todayUtc = LocalDate.now(ZoneOffset.UTC)
-        val since = todayUtc.minusDays(32)
-            .atStartOfDay(ZoneOffset.UTC).toInstant().epochSecond
-        val daily = AnthropicCostsRepository(requireContext()).dailyBucketsSince(since)
-
-        when {
-            !hasKey -> showClaudeState(OpenAiState.NO_KEY)
-            daily.isEmpty() && error == Prefs.ERROR_AUTH -> showClaudeState(OpenAiState.AUTH)
-            daily.isEmpty() && error == Prefs.ERROR_FORBIDDEN ->
-                showClaudeState(OpenAiState.FORBIDDEN)
-            daily.isEmpty() && error == Prefs.ERROR_NETWORK ->
-                showClaudeState(OpenAiState.NETWORK)
-            daily.isEmpty() && error == Prefs.ERROR_UNEXPECTED ->
-                showClaudeState(OpenAiState.UNEXPECTED)
-            daily.isEmpty() && error == null && isRefreshing -> showLoading()
-            daily.isEmpty() -> showClaudeState(OpenAiState.NO_DATA)
-            else -> {
-                showData(Provider.CLAUDE)
-                bindClaude(prefs, daily, error, now, todayUtc)
-            }
-        }
-    }
-
-    private fun bindClaude(
-        prefs: Prefs,
-        daily: List<CostBucket>,
-        error: String?,
-        now: Long,
-        todayUtc: LocalDate
-    ) {
-        dataContainer.visibility = View.GONE
-        openAiNote.text = getString(R.string.claude_note)
-        openAiDayLabel.text = getString(R.string.openai_spent_today)
-        val byDay = daily
-            .filter { dayOfUtc(it.startTsUtc) in todayUtc.minusDays(32)..todayUtc }
-            .groupBy { dayOfUtc(it.startTsUtc) }
-            .mapValues { (_, buckets) -> buckets.fold(BigDecimal.ZERO) { a, b -> a.add(b.amount) } }
-        val todayAmount = byDay[todayUtc]
-        val latestDay = byDay.keys.maxOrNull()
-        val heroValue = todayAmount ?: (latestDay?.let { byDay[it] } ?: BigDecimal.ZERO)
-        if (todayAmount == null && latestDay != null) {
-            openAiDayLabel.text = getString(
-                R.string.openai_spent_on_day,
-                Format.dayLabel(latestDay).uppercase(Locale.ITALY)
-            )
-        }
-        openAiSpentValue.text = Format.money(heroValue)
-
-        val latestBucket = daily.maxByOrNull { it.endTsUtc }
-        val lastEndMs = (latestBucket?.endTsUtc ?: 0L) * 1000L
-        val ageMs = if (lastEndMs > 0L) {
-            (now - lastEndMs).coerceAtLeast(0L)
-        } else {
-            Long.MAX_VALUE
-        }
-        val metaText = when {
-            latestDay == null -> getString(R.string.openai_no_data_title)
-            ageMs > STALE_MS -> getString(
-                R.string.claude_meta_stale,
-                Format.dayLabel(latestDay)
-            )
-            else -> getString(R.string.claude_meta_until, Format.dayLabel(latestDay))
-        }
-        openAiMeta.text = metaText
-        openAiMeta.setTextColor(
-            ContextCompat.getColor(
-                requireContext(),
-                if (ageMs > WARN_MS || error == Prefs.ERROR_NETWORK) R.color.ds_color_warning
-                else R.color.ds_color_text_tertiary
-            )
-        )
-
-        val weekDays = (6 downTo 0).map { todayUtc.minusDays(it.toLong()) }
-        val weekTotal = weekDays.fold(BigDecimal.ZERO) { acc, day ->
-            acc.add(byDay[day] ?: BigDecimal.ZERO)
-        }
-        val weekWithData = weekDays.count { byDay.containsKey(it) }
-        openAiWeekValue.text = Format.money(weekTotal)
-        if (weekWithData < 7) {
-            openAiWeekCaption.text = getString(R.string.openai_partial_days, weekWithData, 7)
-            openAiWeekCaption.visibility = View.VISIBLE
-        } else {
-            openAiWeekCaption.visibility = View.GONE
-        }
-
-        val monthTotal = CostAggregator.spentCurrentMonthUtc(daily, now)
-        openAiMonthValue.text = Format.money(monthTotal)
-        val monthStart = todayUtc.withDayOfMonth(1)
-        val firstMonthDay = byDay.keys.filter { it in monthStart..todayUtc }.minOrNull()
-        if (firstMonthDay != null && firstMonthDay.isAfter(monthStart)) {
-            openAiMonthCaption.text = getString(
-                R.string.openai_partial_since,
-                Format.dayLabel(firstMonthDay)
-            )
-            openAiMonthCaption.visibility = View.VISIBLE
-        } else {
-            openAiMonthCaption.visibility = View.GONE
-        }
-
-        val chartDays = (13 downTo 0).map { todayUtc.minusDays(it.toLong()) }
-        openAiBars.setCompact(false)
-        openAiBars.setMissingDays(chartDays.filter { !byDay.containsKey(it) }.toSet())
-        openAiBars.setData(chartDays.map { day -> day to (byDay[day] ?: BigDecimal.ZERO) })
-        openAiBars.contentDescription = getString(
-            R.string.history_spend_cd,
-            Format.money(monthTotal),
-            Format.money(byDay.values.maxOrNull() ?: BigDecimal.ZERO),
-            Format.dayLabel(todayUtc)
-        )
-        openAiFooter.text = getString(R.string.claude_footer, prefs.getIntervalMinutes())
-        openAiSpentValue.contentDescription = getString(
-            R.string.dashboard_today_cd,
-            Format.money(heroValue)
-        )
-        renderClaudeBanner(error, latestBucket, latestDay, ageMs)
-    }
-
-    private fun renderClaudeBanner(
-        error: String?,
-        latest: CostBucket?,
-        latestDay: LocalDate?,
-        ageMs: Long
-    ) {
-        val lastDate = latestDay?.let { Format.dayLabel(it) } ?: ""
-        when {
-            error == Prefs.ERROR_FORBIDDEN -> showOpenAiBanner(
-                warning = false,
-                title = getString(R.string.claude_forbidden_title),
-                body = getString(R.string.claude_forbidden_banner),
-                action = getString(R.string.claude_settings),
-                actionOpensSettings = true
-            )
-            error == Prefs.ERROR_AUTH -> showOpenAiBanner(
-                warning = false,
-                title = getString(R.string.openai_auth_title),
-                body = getString(R.string.openai_auth_banner),
-                action = getString(R.string.claude_settings),
-                actionOpensSettings = true
-            )
-            error == Prefs.ERROR_NETWORK -> showOpenAiBanner(
-                warning = true,
-                title = getString(
-                    if (isOnline()) R.string.claude_server_title else R.string.error_offline_title
-                ),
-                body = if (lastDate.isNotBlank()) {
-                    getString(R.string.claude_offline_banner, lastDate)
-                } else {
-                    getString(R.string.error_data_none)
-                },
-                action = getString(R.string.openai_retry),
-                actionOpensSettings = false
-            )
-            error == Prefs.ERROR_UNEXPECTED -> showOpenAiBanner(
-                warning = false,
-                title = getString(R.string.error_unexpected_title),
-                body = getString(R.string.openai_unexpected_banner),
-                action = getString(R.string.openai_retry),
-                actionOpensSettings = false
-            )
-            ageMs > STALE_MS -> showOpenAiBanner(
-                warning = true,
-                title = getString(R.string.openai_stale_title),
-                body = getString(R.string.claude_meta_stale, lastDate),
-                action = getString(R.string.openai_retry),
-                actionOpensSettings = false
-            )
-            else -> openAiBanner.visibility = View.GONE
-        }
-    }
-
-    private fun showClaudeState(state: OpenAiState) {
-        stopSkeleton()
-        loadingContainer.visibility = View.GONE
-        stateContainer.visibility = View.VISIBLE
-        dataContainer.visibility = View.GONE
-        openAiData.visibility = View.GONE
-        stateHint.visibility = View.GONE
-        stateSecondary.visibility = View.GONE
-        stateTertiary.visibility = View.GONE
-        val warning = ContextCompat.getColor(requireContext(), R.color.ds_color_warning)
-        val error = ContextCompat.getColor(requireContext(), R.color.ds_color_error)
-        val secondary = ContextCompat.getColor(requireContext(), R.color.ds_color_text_secondary)
-        when (state) {
-            OpenAiState.NO_KEY -> {
-                stateIcon.setImageResource(R.drawable.ic_key)
-                stateIcon.imageTintList = ColorStateList.valueOf(secondary)
-                stateTitle.text = getString(R.string.claude_no_key_title)
-                stateBody.text = getString(R.string.claude_no_key_body)
-                stateHint.text = getString(R.string.claude_no_key_hint)
-                stateHint.visibility = View.VISIBLE
-                statePrimary.text = getString(R.string.claude_add_admin_key)
-                statePrimary.setOnClickListener { openSettings(Provider.CLAUDE) }
-                swipeRefresh.isEnabled = false
-            }
-            OpenAiState.FORBIDDEN -> {
-                stateIcon.setImageResource(R.drawable.ic_error)
-                stateIcon.imageTintList = ColorStateList.valueOf(error)
-                stateTitle.text = getString(R.string.claude_forbidden_title)
-                stateBody.text = getString(R.string.claude_forbidden_body)
-                statePrimary.text = getString(R.string.claude_settings)
-                statePrimary.setOnClickListener { openSettings(Provider.CLAUDE) }
-                stateSecondary.text = getString(R.string.openai_retry)
-                stateSecondary.visibility = View.VISIBLE
-                stateSecondary.setOnClickListener { refreshFromNetwork() }
-                swipeRefresh.isEnabled = true
-            }
-            OpenAiState.AUTH -> {
-                stateIcon.setImageResource(R.drawable.ic_error)
-                stateIcon.imageTintList = ColorStateList.valueOf(error)
-                stateTitle.text = getString(R.string.openai_auth_title)
-                stateBody.text = getString(R.string.openai_auth_body)
-                statePrimary.text = getString(R.string.claude_settings)
-                statePrimary.setOnClickListener { openSettings(Provider.CLAUDE) }
-                stateSecondary.text = getString(R.string.openai_retry)
-                stateSecondary.visibility = View.VISIBLE
-                stateSecondary.setOnClickListener { refreshFromNetwork() }
-                swipeRefresh.isEnabled = true
-            }
-            OpenAiState.NETWORK -> {
-                stateIcon.setImageResource(R.drawable.ic_cloud_off)
-                stateIcon.imageTintList = ColorStateList.valueOf(warning)
-                stateTitle.text = getString(R.string.openai_network_title)
-                stateBody.text = getString(R.string.openai_network_body)
-                statePrimary.text = getString(R.string.openai_retry)
-                statePrimary.setOnClickListener { refreshFromNetwork() }
-                stateSecondary.text = getString(R.string.claude_settings)
-                stateSecondary.visibility = View.VISIBLE
-                stateSecondary.setOnClickListener { openSettings(Provider.CLAUDE) }
-                swipeRefresh.isEnabled = true
-            }
-            OpenAiState.UNEXPECTED -> {
-                stateIcon.setImageResource(R.drawable.ic_error)
-                stateIcon.imageTintList = ColorStateList.valueOf(error)
-                stateTitle.text = getString(R.string.error_unexpected_title)
-                stateBody.text = getString(R.string.error_unexpected_body)
-                statePrimary.text = getString(R.string.openai_retry)
-                statePrimary.setOnClickListener { refreshFromNetwork() }
-                swipeRefresh.isEnabled = true
-            }
-            OpenAiState.NO_DATA -> {
-                stateIcon.setImageResource(R.drawable.ic_warning)
-                stateIcon.imageTintList = ColorStateList.valueOf(secondary)
-                stateTitle.text = getString(R.string.openai_no_data_title)
-                stateBody.text = getString(R.string.openai_no_data_body)
-                statePrimary.text = getString(R.string.openai_retry)
-                statePrimary.setOnClickListener { refreshFromNetwork() }
-                stateSecondary.text = getString(R.string.claude_settings)
-                stateSecondary.visibility = View.VISIBLE
-                stateSecondary.setOnClickListener { openSettings(Provider.CLAUDE) }
-                swipeRefresh.isEnabled = true
-            }
-        }
-    }
-
     // --- Stati comuni ---------------------------------------------------
 
     private fun showLoading() {
@@ -1005,9 +975,6 @@ class DashboardFragment : Fragment() {
         stateSecondary.text = getString(R.string.provider_configure_openai)
         stateSecondary.visibility = View.VISIBLE
         stateSecondary.setOnClickListener { openSettings(Provider.OPENAI) }
-        stateTertiary.text = getString(R.string.provider_configure_claude)
-        stateTertiary.visibility = View.VISIBLE
-        stateTertiary.setOnClickListener { openSettings(Provider.CLAUDE) }
         swipeRefresh.isEnabled = false
     }
 
@@ -1324,5 +1291,7 @@ class DashboardFragment : Fragment() {
     companion object {
         private const val WARN_MS = 12L * 60L * 60L * 1000L
         private const val STALE_MS = 36L * 60L * 60L * 1000L
+        private val FULL_DATE_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("d MMMM", Locale.ITALY)
     }
 }

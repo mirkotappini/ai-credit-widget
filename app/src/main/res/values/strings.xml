@@ -203,17 +203,15 @@
     <!-- Multi-provider -->
     <string name="provider_deepseek">DeepSeek</string>
     <string name="provider_openai">OpenAI</string>
-    <string name="provider_claude">Claude</string>
     <string name="provider_cd_active">Provider %1$s, attivo.</string>
     <string name="provider_cd_inactive">Provider %1$s. Attiva per passare a %1$s.</string>
     <string name="provider_cd_missing">Provider %1$s, non configurato. Apri le impostazioni %1$s.</string>
     <string name="provider_switched">Provider attivo: %1$s</string>
     <string name="provider_none_title">Nessun provider configurato</string>
     <string name="provider_none_body_unreadable">Una chiave salvata non è più leggibile su questo dispositivo. Reinseriscila nelle impostazioni.</string>
-    <string name="provider_none_body">Aggiungi una chiave DeepSeek, una Admin key OpenAI o una Admin key Claude per iniziare.</string>
+    <string name="provider_none_body">Aggiungi una chiave DeepSeek o una Admin key OpenAI per iniziare.</string>
     <string name="provider_configure_deepseek">Configura DeepSeek</string>
     <string name="provider_configure_openai">Configura OpenAI</string>
-    <string name="provider_configure_claude">Configura Claude</string>
     <string name="provider_note_different">Stai modificando %1$s. Il provider attivo resta %2$s.</string>
 
     <!-- Dashboard OpenAI -->
@@ -255,6 +253,27 @@
     <string name="openai_unexpected_banner">Risposta non leggibile. I costi locali restano disponibili.</string>
     <string name="openai_retry">Riprova</string>
 
+    <!-- Credito residuo OpenAI -->
+    <string name="openai_credit_title">Credito residuo</string>
+    <string name="openai_credit_tag_real">Da OpenAI</string>
+    <string name="openai_credit_tag_estimate">Stima</string>
+    <string name="openai_credit_tag_missing">Da impostare</string>
+    <string name="openai_credit_missing_value">—</string>
+    <string name="openai_credit_missing_note">OpenAI non espone il credito residuo: serve un riferimento tuo. L\'app sottrae poi i costi dei giorni successivi.</string>
+    <string name="openai_credit_missing_action">Imposta riferimento</string>
+    <string name="openai_credit_cd_missing">Credito residuo non impostato. OpenAI non espone questo dato. Apri il riferimento nelle impostazioni per vedere la stima.</string>
+    <string name="openai_credit_ref">Riferimento %1$s del %2$s</string>
+    <string name="openai_credit_ref_today">Riferimento di oggi: nessun costo pubblicato dopo.</string>
+    <string name="openai_credit_note_estimate">Stima per eccesso: con i costi in ritardo il credito reale può essere più basso.</string>
+    <string name="openai_credit_note_real">Letto da OpenAI. Non è una stima.</string>
+    <string name="openai_credit_note_real_stale">Ultimo valore letto il %1$s. Potrebbe non essere aggiornato.</string>
+    <string name="openai_credit_overspent">I costi pubblicati superano il riferimento di %1$s: il credito risulta esaurito e il reale può essere più basso.</string>
+    <string name="openai_credit_cd_real">Credito residuo letto da OpenAI: %1$s. Non è una stima.</string>
+    <string name="openai_credit_cd_real_stale">Credito residuo letto da OpenAI il %1$s: %2$s. Potrebbe non essere aggiornato.</string>
+    <string name="openai_credit_cd_estimate">Credito residuo stimato: %1$s. Riferimento %2$s del %3$s. Stima per eccesso: con i costi in ritardo il credito reale può essere più basso.</string>
+    <string name="openai_credit_cd_estimate_today">Credito residuo stimato: %1$s. Riferimento di oggi, nessun costo pubblicato dopo.</string>
+    <string name="openai_credit_cd_negative">Credito residuo stimato: meno %1$s. I costi pubblicati superano il riferimento di %2$s.</string>
+
     <!-- Storico OpenAI -->
     <string name="openai_period_total">Spesa nel periodo</string>
     <string name="openai_daily_average">Media giornaliera</string>
@@ -286,10 +305,30 @@
     <string name="settings_openai_test_forbidden">Permessi insufficienti. Serve una Admin key dell\'organizzazione.</string>
     <string name="settings_openai_test_auth">Admin key non valida.</string>
     <string name="settings_openai_section_costs">Costi e permessi</string>
-    <string name="settings_openai_info_1">OpenAI non espone un saldo. L\'app legge solo i costi giornalieri.</string>
+    <string name="settings_openai_info_1">OpenAI non espone il credito residuo nell\'API dei costi. Se l\'endpoint di fatturazione risponde, l\'app legge il valore reale.</string>
     <string name="settings_openai_info_2">I costi sono per giorno UTC.</string>
     <string name="settings_openai_info_3">Il widget della home resta collegato a DeepSeek.</string>
     <string name="settings_openai_info_4">La soglia di avviso è disponibile solo per DeepSeek.</string>
+    <string name="settings_openai_info_5">Se la lettura non riesce, il credito residuo è una stima basata sul tuo importo di riferimento.</string>
+    <string name="settings_openai_info_6">Il riferimento non modifica il credito del tuo account: serve solo alla stima.</string>
+    <string name="settings_openai_credit_section">Credito residuo</string>
+    <string name="settings_openai_credit_amount_hint">Importo di riferimento</string>
+    <string name="settings_openai_credit_date">Data del riferimento</string>
+    <string name="settings_openai_credit_date_cd">Data del riferimento: %1$s. Apri il calendario.</string>
+    <string name="settings_openai_credit_helper">Leggi l\'importo nella pagina Billing di OpenAI. La stima sottrae i costi pubblicati dal giorno successivo.</string>
+    <string name="settings_openai_credit_note">È una stima. I costi arrivano con qualche ora di ritardo, quindi il valore può essere più alto del reale.</string>
+    <string name="settings_openai_credit_save">Salva riferimento</string>
+    <string name="settings_openai_credit_saved">Riferimento salvato.</string>
+    <string name="settings_openai_credit_remove">Rimuovi riferimento</string>
+    <string name="settings_openai_credit_remove_title">Rimuovere il riferimento?</string>
+    <string name="settings_openai_credit_remove_body">Il credito stimato non sarà più mostrato. I costi restano disponibili.</string>
+    <string name="settings_openai_credit_removed">Riferimento rimosso.</string>
+    <string name="settings_openai_credit_real_available">Letto da OpenAI: %1$s. In Dashboard questo valore ha la precedenza sulla stima.</string>
+    <string name="settings_openai_credit_error_zero">Inserisci un importo maggiore di zero.</string>
+    <string name="settings_openai_credit_error_decimals">Usa al massimo due decimali.</string>
+    <string name="settings_openai_credit_error_future">La data non può essere successiva a oggi.</string>
+    <string name="settings_openai_credit_error_old">Scegli una data degli ultimi 30 giorni.</string>
+    <string name="settings_openai_credit_error_clock">La data del riferimento è successiva a oggi. Aggiornala.</string>
     <string name="settings_interval_helper_multi">Vale per entrambi i provider. OpenAI può pubblicare i costi con qualche ora di ritardo.</string>
     <string name="settings_privacy_multi">Chiavi e dati restano sul dispositivo. Le richieste vanno a api.deepseek.com e api.openai.com.</string>
 
@@ -299,37 +338,4 @@
     <string name="widget_status_missing_deepseek_large">chiave DeepSeek mancante</string>
     <string name="widget_cd_missing_2x2">Chiave DeepSeek mancante. Apri le impostazioni DeepSeek.</string>
     <string name="widget_cd_missing_4x2">Chiave DeepSeek mancante. Il widget mostra solo DeepSeek. Apri le impostazioni DeepSeek.</string>
-
-    <!-- Claude -->
-    <string name="claude_no_key_title">Claude non configurato</string>
-    <string name="claude_no_key_body">Aggiungi una Admin key di un\'organizzazione Claude Console per leggere i costi.</string>
-    <string name="claude_no_key_hint">Serve una Admin key di un\'organizzazione Claude Console.</string>
-    <string name="claude_add_admin_key">Aggiungi Admin key</string>
-    <string name="claude_forbidden_title">Permessi insufficienti</string>
-    <string name="claude_forbidden_body">Questa key non ha accesso ai costi. Serve una Admin key di un\'organizzazione Claude Console.</string>
-    <string name="claude_forbidden_banner">Questa key non ha accesso ai costi. Serve una Admin key di un\'organizzazione Claude Console.</string>
-    <string name="claude_note">Solo costi · giorni UTC</string>
-    <string name="claude_meta_until">Costi fino al %1$s UTC</string>
-    <string name="claude_meta_stale">Costi non recenti · ultimo dato %1$s UTC</string>
-    <string name="claude_footer">Dati Claude · aggiornamento ogni %1$d min</string>
-    <string name="claude_loading_cd">Caricamento dei costi Claude</string>
-    <string name="claude_offline_banner">Offline. Costi fino al %1$s UTC.</string>
-    <string name="claude_server_title">Claude non risponde</string>
-    <string name="claude_empty_period_title">Nessun costo nel periodo.</string>
-    <string name="claude_empty_period_body">Claude non ha restituito costi per i giorni selezionati.</string>
-    <string name="claude_settings">Apri impostazioni Claude</string>
-
-    <string name="settings_claude_key_hint">Admin key Claude</string>
-    <string name="settings_claude_key_helper_new">Serve una Admin key di un\'organizzazione Claude Console: le key individuali e le workspace key non leggono i costi.</string>
-    <string name="settings_claude_key_helper_saved">Admin key salvata. Inseriscine una nuova solo per sostituirla.</string>
-    <string name="settings_claude_save">Salva Admin key</string>
-    <string name="settings_claude_remove">Rimuovi Admin key</string>
-    <string name="settings_claude_remove_body">I costi Claude smetteranno di aggiornarsi. Lo storico locale resta disponibile.</string>
-    <string name="settings_claude_test_success">Connessione riuscita. Costi leggibili per l\'organizzazione.</string>
-    <string name="settings_claude_test_forbidden">Questa key non ha accesso ai costi. Serve una Admin key di un\'organizzazione Claude Console.</string>
-    <string name="settings_claude_section_costs">Costi e permessi</string>
-    <string name="settings_claude_info_1">Claude non espone un saldo. L\'app legge solo i costi giornalieri.</string>
-    <string name="settings_claude_info_2">I costi sono per giorno UTC.</string>
-    <string name="settings_claude_info_3">Il widget della home resta collegato a DeepSeek.</string>
-    <string name="settings_claude_info_4">La soglia di avviso è disponibile solo per DeepSeek.</string>
 </resources>

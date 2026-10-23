@@ -19,8 +19,7 @@ enum class Provider(
     val currency: String
 ) {
     DEEPSEEK("DeepSeek", MetricType.BALANCE, "USD"),
-    OPENAI("OpenAI", MetricType.COST, "USD"),
-    CLAUDE("Claude", MetricType.COST, "USD");
+    OPENAI("OpenAI", MetricType.COST, "USD");
 
     /** Valore persistito in prefs/DB: nome lowercase stabile. */
     val storageKey: String get() = name.lowercase()

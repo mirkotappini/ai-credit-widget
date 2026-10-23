@@ -22,7 +22,6 @@ import com.patchouli.deepseekwidget.data.Snapshot
 import com.patchouli.deepseekwidget.logic.SpendCalculator
 import com.patchouli.deepseekwidget.net.CostBucket
 import com.patchouli.deepseekwidget.provider.Provider
-import com.patchouli.deepseekwidget.repo.AnthropicCostsRepository
 import com.patchouli.deepseekwidget.repo.BalanceRepository
 import com.patchouli.deepseekwidget.repo.OpenAiCostsRepository
 import com.patchouli.deepseekwidget.util.Format
@@ -203,7 +202,6 @@ class HistoryFragment : Fragment() {
                 when (provider) {
                     Provider.DEEPSEEK -> BalanceRepository(appContext).refresh()
                     Provider.OPENAI -> OpenAiCostsRepository(appContext).refresh()
-                    Provider.CLAUDE -> AnthropicCostsRepository(appContext).refresh()
                 }
             } finally {
                 mainHandler.post {
@@ -225,7 +223,6 @@ class HistoryFragment : Fragment() {
             null -> showNeutral(prefs)
             Provider.DEEPSEEK -> loadDeepSeek(prefs)
             Provider.OPENAI -> loadCost(prefs, Provider.OPENAI)
-            Provider.CLAUDE -> loadCost(prefs, Provider.CLAUDE)
         }
     }
 
@@ -379,7 +376,7 @@ class HistoryFragment : Fragment() {
         }
     }
 
-    // --- Provider a soli costi (OpenAI / Claude) -----------------------
+    // --- Provider a soli costi (OpenAI) --------------------------------
 
     private fun loadCost(prefs: Prefs, provider: Provider) {
         showOpenAiViews()
@@ -388,11 +385,9 @@ class HistoryFragment : Fragment() {
         val todayUtc = LocalDate.now(ZoneOffset.UTC)
         val from = todayUtc.minusDays((rangeDays - 1).toLong())
         val since = from.atStartOfDay(ZoneOffset.UTC).toInstant().epochSecond
-        val daily = if (provider == Provider.CLAUDE) {
-            AnthropicCostsRepository(requireContext()).dailyBucketsSince(since)
-        } else {
-            OpenAiCostsRepository(requireContext()).dailyBucketsSince(since)
-        }.filter { dayOfUtc(it.startTsUtc) in from..todayUtc }
+        val daily = OpenAiCostsRepository(requireContext())
+            .dailyBucketsSince(since)
+            .filter { dayOfUtc(it.startTsUtc) in from..todayUtc }
 
         swipeRefresh.isEnabled = hasKey
         openAiChartPeriod.text = getString(
@@ -405,18 +400,9 @@ class HistoryFragment : Fragment() {
         if (!hasKey) {
             openAiHistory.visibility = View.GONE
             emptyContainer.visibility = View.VISIBLE
-            emptyTitle.text = getString(
-                if (provider == Provider.CLAUDE) R.string.claude_no_key_title
-                else R.string.openai_no_key_title
-            )
-            emptyBody.text = getString(
-                if (provider == Provider.CLAUDE) R.string.claude_no_key_body
-                else R.string.openai_no_key_body
-            )
-            emptyAction.text = getString(
-                if (provider == Provider.CLAUDE) R.string.claude_add_admin_key
-                else R.string.openai_add_admin_key
-            )
+            emptyTitle.text = getString(R.string.openai_no_key_title)
+            emptyBody.text = getString(R.string.openai_no_key_body)
+            emptyAction.text = getString(R.string.openai_add_admin_key)
             emptyAction.setOnClickListener { openSettings(provider) }
             emptyActionSecondary.visibility = View.GONE
             statusStrip.visibility = View.GONE
@@ -427,38 +413,23 @@ class HistoryFragment : Fragment() {
             openAiHistory.visibility = View.GONE
             emptyContainer.visibility = View.VISIBLE
             emptyTitle.text = when (error) {
-                Prefs.ERROR_FORBIDDEN -> getString(
-                    if (provider == Provider.CLAUDE) R.string.claude_forbidden_title
-                    else R.string.openai_forbidden_title
-                )
+                Prefs.ERROR_FORBIDDEN -> getString(R.string.openai_forbidden_title)
                 Prefs.ERROR_AUTH -> getString(R.string.openai_auth_title)
                 Prefs.ERROR_NETWORK -> getString(R.string.openai_network_title)
                 null -> getString(R.string.openai_no_data_title)
-                else -> getString(
-                    if (provider == Provider.CLAUDE) R.string.claude_empty_period_title
-                    else R.string.openai_empty_period_title
-                )
+                else -> getString(R.string.openai_empty_period_title)
             }
             emptyBody.text = when (error) {
-                Prefs.ERROR_FORBIDDEN -> getString(
-                    if (provider == Provider.CLAUDE) R.string.claude_forbidden_body
-                    else R.string.openai_forbidden_body
-                )
+                Prefs.ERROR_FORBIDDEN -> getString(R.string.openai_forbidden_body)
                 Prefs.ERROR_AUTH -> getString(R.string.openai_auth_body)
                 Prefs.ERROR_NETWORK -> getString(R.string.openai_network_body)
                 null -> getString(R.string.openai_no_data_body)
-                else -> getString(
-                    if (provider == Provider.CLAUDE) R.string.claude_empty_period_body
-                    else R.string.openai_empty_period_body
-                )
+                else -> getString(R.string.openai_empty_period_body)
             }
             emptyAction.text = getString(R.string.openai_retry)
             emptyAction.setOnClickListener { refreshFromNetwork() }
             if (error == Prefs.ERROR_FORBIDDEN || error == Prefs.ERROR_AUTH) {
-                emptyActionSecondary.text = getString(
-                    if (provider == Provider.CLAUDE) R.string.claude_settings
-                    else R.string.openai_open_settings
-                )
+                emptyActionSecondary.text = getString(R.string.openai_open_settings)
                 emptyActionSecondary.visibility = View.VISIBLE
                 emptyActionSecondary.setOnClickListener { openSettings(provider) }
             } else {
@@ -676,10 +647,7 @@ class HistoryFragment : Fragment() {
             error == Prefs.ERROR_FORBIDDEN -> StatusStrip(
                 R.drawable.bg_banner_error,
                 R.drawable.dot_error,
-                getString(
-                    if (provider == Provider.CLAUDE) R.string.claude_forbidden_banner
-                    else R.string.openai_forbidden_banner
-                ),
+                getString(R.string.openai_forbidden_banner),
                 true,
                 R.color.ds_color_error
             )
@@ -726,10 +694,7 @@ class HistoryFragment : Fragment() {
         statusText.text = text
         statusText.setTextColor(ContextCompat.getColor(requireContext(), textColor))
         statusAction.visibility = if (actionVisible) View.VISIBLE else View.GONE
-        statusAction.text = getString(
-            if (provider == Provider.CLAUDE) R.string.claude_settings
-            else R.string.openai_settings
-        )
+        statusAction.text = getString(R.string.openai_settings)
         statusAction.setTextColor(ContextCompat.getColor(requireContext(), R.color.ds_color_error))
         statusAction.setOnClickListener { openSettings(provider) }
     }

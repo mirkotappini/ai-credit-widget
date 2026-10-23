@@ -105,14 +105,15 @@ class MainActivity : AppCompatActivity() {
         showScreen(Screen.SETTINGS)
     }
 
-    fun showSettings(provider: Provider) {
-        showScreen(Screen.SETTINGS, settingsProvider = provider)
+    fun showSettings(provider: Provider, focusCredit: Boolean = false) {
+        showScreen(Screen.SETTINGS, settingsProvider = provider, focusCredit = focusCredit)
     }
 
     private fun showScreen(
         screen: Screen,
         animate: Boolean = true,
-        settingsProvider: Provider? = null
+        settingsProvider: Provider? = null,
+        focusCredit: Boolean = false
     ) {
         val mustRebuildSettings = screen == Screen.SETTINGS && settingsProvider != null
         if (screen == currentScreen &&
@@ -127,7 +128,8 @@ class MainActivity : AppCompatActivity() {
             Screen.HISTORY -> HistoryFragment()
             Screen.SETTINGS -> SettingsFragment.newInstance(
                 settingsProvider ?: pendingSettingsProvider
-                ?: Prefs(this).activeProviderOrNull() ?: Prefs(this).getActiveProvider()
+                ?: Prefs(this).activeProviderOrNull() ?: Prefs(this).getActiveProvider(),
+                focusCredit = focusCredit
             )
         }
         val transaction = supportFragmentManager.beginTransaction()

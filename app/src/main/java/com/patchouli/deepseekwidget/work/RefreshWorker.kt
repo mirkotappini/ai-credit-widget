@@ -8,8 +8,9 @@ import com.patchouli.deepseekwidget.net.ApiResult
 import com.patchouli.deepseekwidget.net.CostsResult
 import com.patchouli.deepseekwidget.provider.Provider
 import com.patchouli.deepseekwidget.repo.BalanceRepository
-import com.patchouli.deepseekwidget.repo.AnthropicCostsRepository
 import com.patchouli.deepseekwidget.repo.OpenAiCostsRepository
+import com.patchouli.deepseekwidget.repo.OpenAiCreditRefreshMode
+import com.patchouli.deepseekwidget.repo.OpenAiCreditRepository
 
 class RefreshWorker(
     appContext: Context,
@@ -23,7 +24,6 @@ class RefreshWorker(
         val provider = forced ?: Prefs(applicationContext).getActiveProvider()
         return when (provider) {
             Provider.OPENAI -> refreshOpenAi()
-            Provider.CLAUDE -> refreshClaude()
             Provider.DEEPSEEK -> refreshDeepSeek()
         }
     }
@@ -34,17 +34,19 @@ class RefreshWorker(
             else -> Result.success()
         }
 
-    private fun refreshOpenAi(): Result =
-        when (OpenAiCostsRepository(applicationContext).refresh()) {
+    private fun refreshOpenAi(): Result {
+        val result = OpenAiCostsRepository(applicationContext).refresh()
+        // Dopo un refresh costi riuscito si tenta il credito, ignorando l'esito:
+        // un fallimento non deve cambiare lo stato del worker né della key.
+        if (result is CostsResult.Success) {
+            OpenAiCreditRepository(applicationContext)
+                .refresh(OpenAiCreditRefreshMode.NORMAL)
+        }
+        return when (result) {
             is CostsResult.NetworkError -> retryOrGiveUp()
             else -> Result.success()
         }
-
-    private fun refreshClaude(): Result =
-        when (AnthropicCostsRepository(applicationContext).refresh()) {
-            is CostsResult.NetworkError -> retryOrGiveUp()
-            else -> Result.success()
-        }
+    }
 
     private fun retryOrGiveUp(): Result =
         if (runAttemptCount < MAX_NETWORK_RETRIES) Result.retry() else Result.success()

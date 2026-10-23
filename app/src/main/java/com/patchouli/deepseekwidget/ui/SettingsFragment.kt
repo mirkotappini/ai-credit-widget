@@ -3,25 +3,34 @@ package com.patchouli.deepseekwidget.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.text.Editable
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.TextPaint
 import android.text.TextWatcher
+import android.text.style.MetricAffectingSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.datepicker.CalendarConstraints
+import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
 import com.google.android.material.snackbar.Snackbar
@@ -29,7 +38,6 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.patchouli.deepseekwidget.R
 import com.patchouli.deepseekwidget.data.Prefs
-import com.patchouli.deepseekwidget.net.AnthropicCostsApi
 import com.patchouli.deepseekwidget.net.ApiResult
 import com.patchouli.deepseekwidget.net.CostsResult
 import com.patchouli.deepseekwidget.net.DeepSeekApi
@@ -42,8 +50,10 @@ import com.patchouli.deepseekwidget.work.RefreshScheduler
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -54,7 +64,6 @@ class SettingsFragment : Fragment() {
     private lateinit var providerNote: TextView
     private lateinit var deepSeekSettings: View
     private lateinit var openAiSettings: View
-    private lateinit var claudeSettings: View
 
     private lateinit var apiKeyLayout: TextInputLayout
     private lateinit var apiKeyInput: TextInputEditText
@@ -84,21 +93,25 @@ class SettingsFragment : Fragment() {
     private lateinit var openAiStatusDot: ImageView
     private lateinit var openAiStatusText: TextView
 
-    private lateinit var claudeKeyLayout: TextInputLayout
-    private lateinit var claudeKeyInput: TextInputEditText
-    private lateinit var claudeKeyHelper: TextView
-    private lateinit var claudeSaveButton: MaterialButton
-    private lateinit var claudeTestButton: MaterialButton
-    private lateinit var claudeRemoveButton: MaterialButton
-    private lateinit var claudeStatusRow: View
-    private lateinit var claudeStatusDot: ImageView
-    private lateinit var claudeStatusText: TextView
+    private lateinit var creditSection: TextView
+    private lateinit var creditAmountLayout: TextInputLayout
+    private lateinit var creditAmountInput: TextInputEditText
+    private lateinit var creditDateRow: View
+    private lateinit var creditDateValue: TextView
+    private lateinit var creditHelper: TextView
+    private lateinit var creditSaveButton: MaterialButton
+    private lateinit var creditRemoveButton: MaterialButton
+    private lateinit var creditStatusRow: View
+    private lateinit var creditStatusDot: ImageView
+    private lateinit var creditStatusText: TextView
+    private lateinit var creditNote: TextView
+    private lateinit var creditRealLine: TextView
 
     private var selectedTab = Provider.DEEPSEEK
     private var isTesting = false
     private var isOpenAiTesting = false
-    private var isClaudeTesting = false
     private var binding = false
+    private var creditRefDate: LocalDate = LocalDate.now(ZoneOffset.UTC)
 
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -122,7 +135,6 @@ class SettingsFragment : Fragment() {
         providerNote = view.findViewById(R.id.provider_note)
         deepSeekSettings = view.findViewById(R.id.deepseek_settings)
         openAiSettings = view.findViewById(R.id.openai_settings)
-        claudeSettings = view.findViewById(R.id.claude_settings)
 
         apiKeyLayout = view.findViewById(R.id.api_key_layout)
         apiKeyInput = view.findViewById(R.id.api_key_input)
@@ -152,15 +164,19 @@ class SettingsFragment : Fragment() {
         openAiStatusDot = view.findViewById(R.id.openai_status_dot)
         openAiStatusText = view.findViewById(R.id.openai_status)
 
-        claudeKeyLayout = view.findViewById(R.id.claude_key_layout)
-        claudeKeyInput = view.findViewById(R.id.claude_key_input)
-        claudeKeyHelper = view.findViewById(R.id.claude_key_helper)
-        claudeSaveButton = view.findViewById(R.id.claude_save_button)
-        claudeTestButton = view.findViewById(R.id.claude_test_button)
-        claudeRemoveButton = view.findViewById(R.id.claude_remove_button)
-        claudeStatusRow = view.findViewById(R.id.claude_status_row)
-        claudeStatusDot = view.findViewById(R.id.claude_status_dot)
-        claudeStatusText = view.findViewById(R.id.claude_status)
+        creditSection = view.findViewById(R.id.openai_credit_section)
+        creditAmountLayout = view.findViewById(R.id.openai_credit_amount_layout)
+        creditAmountInput = view.findViewById(R.id.openai_credit_amount_input)
+        creditDateRow = view.findViewById(R.id.openai_credit_date_row)
+        creditDateValue = view.findViewById(R.id.openai_credit_date_value)
+        creditHelper = view.findViewById(R.id.openai_credit_helper)
+        creditSaveButton = view.findViewById(R.id.openai_credit_save_button)
+        creditRemoveButton = view.findViewById(R.id.openai_credit_remove_button)
+        creditStatusRow = view.findViewById(R.id.openai_credit_status_row)
+        creditStatusDot = view.findViewById(R.id.openai_credit_status_dot)
+        creditStatusText = view.findViewById(R.id.openai_credit_status)
+        creditNote = view.findViewById(R.id.openai_credit_note)
+        creditRealLine = view.findViewById(R.id.openai_credit_real_line)
 
         val prefs = Prefs(requireContext())
         selectedTab = savedInstanceState?.getString(KEY_TAB)?.let { Provider.fromStorage(it) }
@@ -184,10 +200,10 @@ class SettingsFragment : Fragment() {
 
         statusRow.visibility = View.GONE
         openAiStatusRow.visibility = View.GONE
-        claudeStatusRow.visibility = View.GONE
+        creditStatusRow.visibility = View.GONE
         apiKeyInput.addTextChangedListener(deepKeyWatcher)
         openAiKeyInput.addTextChangedListener(openAiKeyWatcher)
-        claudeKeyInput.addTextChangedListener(claudeKeyWatcher)
+        creditAmountInput.addTextChangedListener(creditAmountWatcher)
 
         saveButton.setOnClickListener { saveDeepSeekKey() }
         testButton.setOnClickListener { testDeepSeekConnection() }
@@ -198,9 +214,9 @@ class SettingsFragment : Fragment() {
         openAiTestButton.setOnClickListener { testOpenAiConnection() }
         openAiRemoveButton.setOnClickListener { confirmRemoveOpenAiKey() }
 
-        claudeSaveButton.setOnClickListener { saveClaudeKey() }
-        claudeTestButton.setOnClickListener { testClaudeConnection() }
-        claudeRemoveButton.setOnClickListener { confirmRemoveClaudeKey() }
+        creditDateRow.setOnClickListener { showCreditDatePicker() }
+        creditSaveButton.setOnClickListener { saveCreditAnchor() }
+        creditRemoveButton.setOnClickListener { confirmRemoveCreditAnchor() }
 
         thresholdSlider.addOnChangeListener { _, value, fromUser ->
             updateThresholdLabel(value)
@@ -230,6 +246,26 @@ class SettingsFragment : Fragment() {
         }
 
         load()
+
+        if (arguments?.getBoolean(ARG_FOCUS_CREDIT) == true) {
+            view.post { scrollToCreditSection(view) }
+        }
+    }
+
+    /**
+     * Arrivo dalla card "da impostare" in Dashboard: porta al campo del
+     * riferimento, non solo alla schermata delle impostazioni.
+     */
+    private fun scrollToCreditSection(root: View) {
+        if (!isAdded || openAiSettings.visibility != View.VISIBLE) return
+        val scroll = root as? ScrollView ?: return
+        val section = IntArray(2)
+        creditSection.getLocationInWindow(section)
+        val origin = IntArray(2)
+        scroll.getLocationInWindow(origin)
+        val margin = (16 * resources.displayMetrics.density).toInt()
+        scroll.smoothScrollTo(0, (scroll.scrollY + section[1] - origin[1] - margin).coerceAtLeast(0))
+        creditAmountInput.requestFocus()
     }
 
     override fun onResume() {
@@ -276,11 +312,12 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private val claudeKeyWatcher = object : TextWatcher {
+    private val creditAmountWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
         override fun afterTextChanged(s: Editable?) {
-            if (binding || selectedTab != Provider.CLAUDE) return
+            if (binding) return
+            updateCreditAmountError()
             updateButtons()
         }
     }
@@ -293,10 +330,9 @@ class SettingsFragment : Fragment() {
 
         apiKeyInput.setText("")
         openAiKeyInput.setText("")
-        claudeKeyInput.setText("")
         bindDeepSeekFields(prefs)
         bindOpenAiFields(prefs)
-        bindClaudeFields(prefs)
+        bindOpenAiCreditFields(prefs)
 
         val threshold = prefs.getThreshold()
             .max(BigDecimal.ZERO)
@@ -355,29 +391,6 @@ class SettingsFragment : Fragment() {
         removeKeyButton.visibility = if (keyState != Prefs.KeyState.MISSING) View.VISIBLE else View.GONE
     }
 
-    private fun bindClaudeFields(prefs: Prefs) {
-        val keyState = prefs.keyState(Provider.CLAUDE)
-        val hasKey = keyState == Prefs.KeyState.READABLE
-        claudeKeyLayout.hint = getString(
-            if (hasKey) R.string.settings_openai_key_new_hint else R.string.settings_claude_key_hint
-        )
-        claudeKeyHelper.text = getString(
-            when (keyState) {
-                Prefs.KeyState.READABLE -> R.string.settings_claude_key_helper_saved
-                Prefs.KeyState.UNREADABLE -> R.string.settings_key_unreadable
-                Prefs.KeyState.MISSING -> R.string.settings_claude_key_helper_new
-            }
-        )
-        claudeKeyHelper.setTextColor(
-            ContextCompat.getColor(
-                requireContext(),
-                if (keyState == Prefs.KeyState.UNREADABLE) R.color.ds_color_error
-                else R.color.ds_color_text_secondary
-            )
-        )
-        claudeRemoveButton.visibility = if (keyState != Prefs.KeyState.MISSING) View.VISIBLE else View.GONE
-    }
-
     private fun bindOpenAiFields(prefs: Prefs) {
         val keyState = prefs.keyState(Provider.OPENAI)
         val hasKey = keyState == Prefs.KeyState.READABLE
@@ -409,8 +422,6 @@ class SettingsFragment : Fragment() {
             if (selectedTab == Provider.DEEPSEEK) View.VISIBLE else View.GONE
         openAiSettings.visibility =
             if (selectedTab == Provider.OPENAI) View.VISIBLE else View.GONE
-        claudeSettings.visibility =
-            if (selectedTab == Provider.CLAUDE) View.VISIBLE else View.GONE
         providerNote.visibility = if (active != null && active != selectedTab) {
             providerNote.text = getString(
                 R.string.provider_note_different,
@@ -430,19 +441,15 @@ class SettingsFragment : Fragment() {
         val prefs = Prefs(requireContext())
         val hasDeepKey = prefs.hasApiKey(Provider.DEEPSEEK)
         val hasOpenAiKey = prefs.hasApiKey(Provider.OPENAI)
-        val hasClaudeKey = prefs.hasApiKey(Provider.CLAUDE)
         val deepText = !apiKeyInput.text.isNullOrBlank()
         val openAiText = !openAiKeyInput.text.isNullOrBlank()
-        val claudeText = !claudeKeyInput.text.isNullOrBlank()
         saveButton.isEnabled = !isTesting && deepText
         testButton.isEnabled = !isTesting && hasDeepKey && !deepText
         removeKeyButton.isEnabled = !isTesting && hasDeepKey
         openAiSaveButton.isEnabled = !isOpenAiTesting && openAiText
         openAiTestButton.isEnabled = !isOpenAiTesting && hasOpenAiKey && !openAiText
         openAiRemoveButton.isEnabled = !isOpenAiTesting && hasOpenAiKey
-        claudeSaveButton.isEnabled = !isClaudeTesting && claudeText
-        claudeTestButton.isEnabled = !isClaudeTesting && hasClaudeKey && !claudeText
-        claudeRemoveButton.isEnabled = !isClaudeTesting && hasClaudeKey
+        creditSaveButton.isEnabled = creditAmountIsValid()
     }
 
     // --- DeepSeek -------------------------------------------------------
@@ -581,6 +588,8 @@ class SettingsFragment : Fragment() {
         openAiKeyLayout.hint = getString(R.string.settings_openai_key_new_hint)
         openAiKeyHelper.text = getString(R.string.settings_openai_key_helper_saved)
         openAiRemoveButton.visibility = View.VISIBLE
+        // La sostituzione della key cancella il reale in cache: la riga sparisce.
+        refreshCreditRealLine(prefs)
         updateButtons()
         testOpenAiConnection()
     }
@@ -655,6 +664,241 @@ class SettingsFragment : Fragment() {
     private fun looksLikeUserKey(key: String): Boolean =
         key.startsWith("sk-") && !key.startsWith("sk-admin-")
 
+    // --- Credito residuo OpenAI -----------------------------------------
+
+    private fun bindOpenAiCreditFields(prefs: Prefs) {
+        if (!isAdded) return
+        val today = LocalDate.now(ZoneOffset.UTC)
+        val anchorUsd = prefs.getOpenAiCreditAnchorUsd()
+        val anchorTs = prefs.getOpenAiCreditAnchorTs()
+        val hasAnchor = anchorUsd != null && anchorTs > 0L
+
+        if (hasAnchor) {
+            creditAmountInput.setText(anchorUsd!!.stripTrailingZeros().toPlainString())
+            creditRefDate = Instant.ofEpochMilli(anchorTs)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+        } else {
+            creditAmountInput.setText("")
+            creditRefDate = today
+        }
+        creditAmountLayout.error = null
+        renderCreditDate()
+        creditRemoveButton.visibility = if (hasAnchor) View.VISIBLE else View.GONE
+        refreshCreditRealLine(prefs)
+        creditStatusRow.visibility = View.GONE
+        // Un riferimento salvato nel futuro resta modificabile ma non è usato
+        // dalla stima: lo segnaliamo qui, senza banner in Dashboard.
+        if (hasAnchor && creditRefDate.isAfter(today)) {
+            showCreditStatus(
+                getString(R.string.settings_openai_credit_error_clock),
+                StatusKind.ERROR
+            )
+        }
+    }
+
+    private fun parseCreditAmount(): BigDecimal? =
+        creditAmountInput.text?.toString()
+            ?.trim()
+            ?.replace(',', '.')
+            ?.toBigDecimalOrNull()
+
+    private fun creditAmountErrorRes(): Int? {
+        val raw = creditAmountInput.text?.toString()?.trim().orEmpty()
+        if (raw.isEmpty()) return null
+        val amount = parseCreditAmount() ?: return R.string.settings_openai_credit_error_zero
+        if (amount.signum() <= 0) return R.string.settings_openai_credit_error_zero
+        val decimals = amount.stripTrailingZeros().scale().coerceAtLeast(0)
+        if (decimals > 2) return R.string.settings_openai_credit_error_decimals
+        return null
+    }
+
+    private fun creditAmountIsValid(): Boolean {
+        val raw = creditAmountInput.text?.toString()?.trim().orEmpty()
+        if (raw.isEmpty()) return false
+        val amount = parseCreditAmount() ?: return false
+        return amount.signum() > 0 &&
+            amount.stripTrailingZeros().scale().coerceAtLeast(0) <= 2
+    }
+
+    /** Errore inline mentre si digita, evitando i passaggi intermedi ("0", "0,"). */
+    private fun updateCreditAmountError() {
+        val raw = creditAmountInput.text?.toString()?.trim().orEmpty()
+        if (raw.isEmpty() || raw == "0" || raw.endsWith(",") || raw.endsWith(".")) {
+            creditAmountLayout.error = null
+            return
+        }
+        val error = creditAmountErrorRes()
+        creditAmountLayout.error = error?.let { getString(it) }
+    }
+
+    private fun renderCreditDate() {
+        if (!isAdded) return
+        creditDateValue.text = Format.dayLabel(creditRefDate)
+        creditDateRow.contentDescription = getString(
+            R.string.settings_openai_credit_date_cd,
+            fullCreditDate(creditRefDate)
+        )
+    }
+
+    private fun showCreditDatePicker() {
+        if (!isAdded) return
+        val today = LocalDate.now(ZoneOffset.UTC)
+        val min = today.minusDays(30)
+        val selection = when {
+            creditRefDate.isBefore(min) -> min
+            creditRefDate.isAfter(today) -> today
+            else -> creditRefDate
+        }
+        val constraints = CalendarConstraints.Builder()
+            .setStart(utcMillis(min))
+            .setEnd(utcMillis(today.plusDays(1)) - 1L)
+            .build()
+        val picker = MaterialDatePicker.Builder.datePicker()
+            .setTitleText(R.string.settings_openai_credit_date)
+            .setSelection(utcMillis(selection))
+            .setCalendarConstraints(constraints)
+            .build()
+        picker.addOnPositiveButtonClickListener { millis ->
+            creditRefDate = Instant.ofEpochMilli(millis)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+            creditAmountLayout.error = null
+            creditStatusRow.visibility = View.GONE
+            renderCreditDate()
+            updateButtons()
+        }
+        picker.show(childFragmentManager, "openai_credit_date")
+    }
+
+    private fun saveCreditAnchor() {
+        if (!isAdded) return
+        val error = creditAmountErrorRes() ?: run {
+            if (!creditAmountIsValid()) R.string.settings_openai_credit_error_zero else null
+        }
+        val amount = parseCreditAmount()
+        if (error != null || amount == null) {
+            creditAmountLayout.error = getString(
+                error ?: R.string.settings_openai_credit_error_zero
+            )
+            return
+        }
+
+        val today = LocalDate.now(ZoneOffset.UTC)
+        when {
+            creditRefDate.isAfter(today) -> {
+                showCreditStatus(
+                    getString(R.string.settings_openai_credit_error_future),
+                    StatusKind.ERROR
+                )
+                return
+            }
+            creditRefDate.isBefore(today.minusDays(30)) -> {
+                showCreditStatus(
+                    getString(R.string.settings_openai_credit_error_old),
+                    StatusKind.ERROR
+                )
+                return
+            }
+        }
+
+        Prefs(requireContext()).setOpenAiCreditAnchor(amount, utcMillis(creditRefDate))
+        creditAmountLayout.error = null
+        creditStatusRow.visibility = View.GONE
+        creditRemoveButton.visibility = View.VISIBLE
+        updateButtons()
+        Snackbar.make(
+            requireView(),
+            R.string.settings_openai_credit_saved,
+            Snackbar.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun confirmRemoveCreditAnchor() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_openai_credit_remove_title)
+            .setMessage(R.string.settings_openai_credit_remove_body)
+            .setNegativeButton(R.string.settings_cancel, null)
+            .setPositiveButton(R.string.settings_remove_confirm) { _, _ -> removeCreditAnchor() }
+            .show()
+    }
+
+    private fun removeCreditAnchor() {
+        if (!isAdded) return
+        Prefs(requireContext()).clearOpenAiCreditAnchor()
+        binding = true
+        creditAmountInput.setText("")
+        binding = false
+        creditRefDate = LocalDate.now(ZoneOffset.UTC)
+        creditAmountLayout.error = null
+        creditStatusRow.visibility = View.GONE
+        creditRemoveButton.visibility = View.GONE
+        renderCreditDate()
+        updateButtons()
+        Snackbar.make(
+            requireView(),
+            R.string.settings_openai_credit_removed,
+            Snackbar.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun refreshCreditRealLine(prefs: Prefs) {
+        if (!isAdded) return
+        val realUsd = prefs.getOpenAiCreditRealUsd()
+        val realTs = prefs.getOpenAiCreditRealTs()
+        if (realUsd == null || realTs <= 0L) {
+            creditRealLine.visibility = View.GONE
+            return
+        }
+        val amount = Format.money(realUsd)
+        creditRealLine.visibility = View.VISIBLE
+        creditRealLine.text = monoParts(
+            getString(R.string.settings_openai_credit_real_available, amount),
+            amount
+        )
+    }
+
+    private fun showCreditStatus(text: String, kind: StatusKind) {
+        showStatusRow(creditStatusRow, creditStatusDot, creditStatusText, text, kind)
+    }
+
+    private fun utcMillis(day: LocalDate): Long =
+        day.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    private fun fullCreditDate(day: LocalDate): String =
+        day.format(FULL_DATE_FORMATTER)
+
+    private fun monoParts(text: CharSequence, vararg parts: String): CharSequence {
+        val full = text.toString()
+        val span = SpannableString(full)
+        val typeface = ResourcesCompat.getFont(requireContext(), R.font.plex_mono_regular)
+            ?: Typeface.MONOSPACE
+        var from = 0
+        for (part in parts) {
+            if (part.isEmpty()) continue
+            val start = full.indexOf(part, from)
+            if (start < 0) continue
+            span.setSpan(
+                MonoTypefaceSpan(typeface),
+                start,
+                start + part.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            from = start + part.length
+        }
+        return span
+    }
+
+    private class MonoTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
+        override fun updateDrawState(tp: TextPaint) {
+            tp.typeface = typeface
+        }
+
+        override fun updateMeasureState(tp: TextPaint) {
+            tp.typeface = typeface
+        }
+    }
+
     private fun fallbackAfterRemoval(prefs: Prefs, removed: Provider) {
         val other = Provider.entries.firstOrNull {
             it != removed && prefs.hasApiKey(it)
@@ -669,118 +913,6 @@ class SettingsFragment : Fragment() {
         } else {
             prefs.clearActiveProvider()
         }
-    }
-
-
-    // --- Claude ---------------------------------------------------------
-
-    private fun saveClaudeKey() {
-        if (!isAdded) return
-        val key = claudeKeyInput.text?.toString()?.trim().orEmpty()
-        if (key.isBlank()) return
-        persistClaudeKey(key)
-    }
-
-    private fun persistClaudeKey(key: String) {
-        val prefs = Prefs(requireContext())
-        if (!prefs.setApiKey(Provider.CLAUDE, key)) {
-            showClaudeStatus(getString(R.string.settings_key_save_error), StatusKind.ERROR)
-            return
-        }
-        prefs.setLastError(null, Provider.CLAUDE)
-        if (prefs.activeProviderOrNull() == null) prefs.setActiveProvider(Provider.CLAUDE)
-        scheduleIfAnyKey()
-        if (prefs.getActiveProvider() == Provider.CLAUDE) {
-            RefreshScheduler.refreshNow(requireContext(), Provider.CLAUDE)
-        }
-        binding = true
-        claudeKeyInput.setText("")
-        binding = false
-        claudeKeyLayout.hint = getString(R.string.settings_openai_key_new_hint)
-        claudeKeyHelper.text = getString(R.string.settings_claude_key_helper_saved)
-        claudeRemoveButton.visibility = View.VISIBLE
-        updateButtons()
-        testClaudeConnection()
-    }
-
-    private fun confirmRemoveClaudeKey() {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.settings_openai_remove_title)
-            .setMessage(R.string.settings_claude_remove_body)
-            .setNegativeButton(R.string.settings_cancel, null)
-            .setPositiveButton(R.string.settings_remove_confirm) { _, _ -> removeClaudeKey() }
-            .show()
-    }
-
-    private fun removeClaudeKey() {
-        val prefs = Prefs(requireContext())
-        val wasActive = prefs.activeProviderOrNull() == Provider.CLAUDE
-        prefs.setApiKey(Provider.CLAUDE, "")
-        prefs.setLastError(Prefs.ERROR_MISSING_KEY, Provider.CLAUDE)
-        if (wasActive) fallbackAfterRemoval(prefs, Provider.CLAUDE)
-        scheduleIfAnyKey()
-        load()
-        showClaudeStatus(getString(R.string.settings_key_removed), StatusKind.WARNING)
-    }
-
-    private fun testClaudeConnection() {
-        if (!isAdded || isClaudeTesting) return
-        val key = Prefs(requireContext()).getApiKey(Provider.CLAUDE)
-        if (key.isNullOrBlank()) {
-            showClaudeStatus(getString(R.string.settings_test_missing), StatusKind.WARNING)
-            return
-        }
-        setClaudeTesting(true)
-        showClaudeStatus(getString(R.string.settings_test_running), StatusKind.ACCENT)
-        val monthStart = Instant.now()
-            .atZone(ZoneOffset.UTC)
-            .toLocalDate()
-            .withDayOfMonth(1)
-            .atStartOfDay(ZoneOffset.UTC)
-            .toInstant()
-            .let { DateTimeFormatter.ISO_INSTANT.format(it) }
-        val api = AnthropicCostsApi(maxPages = 1)
-        executor.execute {
-            val result = api.fetch(key, monthStart, limit = 1, bucketWidth = "1d")
-            mainHandler.post {
-                if (!isAdded || view == null) return@post
-                setClaudeTesting(false)
-                when (result) {
-                    is CostsResult.Success -> showClaudeStatus(
-                        getString(R.string.settings_claude_test_success),
-                        StatusKind.POSITIVE
-                    )
-                    CostsResult.Forbidden -> showClaudeStatus(
-                        getString(R.string.settings_claude_test_forbidden),
-                        StatusKind.ERROR
-                    )
-                    CostsResult.Unauthorized -> showClaudeStatus(
-                        getString(R.string.settings_openai_test_auth),
-                        StatusKind.ERROR
-                    )
-                    is CostsResult.NetworkError -> showClaudeStatus(
-                        getString(R.string.settings_test_network_detail, result.detail),
-                        StatusKind.ERROR
-                    )
-                    is CostsResult.Unexpected -> showClaudeStatus(
-                        getString(R.string.settings_test_unexpected_detail, result.detail),
-                        StatusKind.WARNING
-                    )
-                    CostsResult.MissingKey -> showClaudeStatus(
-                        getString(R.string.settings_test_missing),
-                        StatusKind.WARNING
-                    )
-                }
-            }
-        }
-    }
-
-    private fun setClaudeTesting(testing: Boolean) {
-        isClaudeTesting = testing
-        claudeTestButton.text = getString(
-            if (testing) R.string.settings_test_running else R.string.settings_test
-        )
-        updateButtons()
     }
 
     // --- Comuni ---------------------------------------------------------
@@ -885,10 +1017,6 @@ class SettingsFragment : Fragment() {
         showStatusRow(openAiStatusRow, openAiStatusDot, openAiStatusText, text, kind)
     }
 
-    private fun showClaudeStatus(text: String, kind: StatusKind) {
-        showStatusRow(claudeStatusRow, claudeStatusDot, claudeStatusText, text, kind)
-    }
-
     private fun showStatusRow(
         row: View,
         dot: ImageView,
@@ -913,7 +1041,6 @@ class SettingsFragment : Fragment() {
     private fun labelRes(provider: Provider): Int = when (provider) {
         Provider.DEEPSEEK -> R.string.provider_deepseek
         Provider.OPENAI -> R.string.provider_openai
-        Provider.CLAUDE -> R.string.provider_claude
     }
 
     override fun onDestroy() {
@@ -930,10 +1057,19 @@ class SettingsFragment : Fragment() {
 
     companion object {
         private const val ARG_PROVIDER = "settings_provider"
+        private const val ARG_FOCUS_CREDIT = "settings_focus_credit"
         private const val KEY_TAB = "settings_tab"
+        private val FULL_DATE_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("d MMMM", Locale.ITALY)
 
-        fun newInstance(provider: Provider): SettingsFragment = SettingsFragment().apply {
-            arguments = Bundle().apply { putString(ARG_PROVIDER, provider.storageKey) }
+        fun newInstance(
+            provider: Provider,
+            focusCredit: Boolean = false
+        ): SettingsFragment = SettingsFragment().apply {
+            arguments = Bundle().apply {
+                putString(ARG_PROVIDER, provider.storageKey)
+                putBoolean(ARG_FOCUS_CREDIT, focusCredit)
+            }
         }
     }
 }

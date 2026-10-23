@@ -161,12 +161,6 @@
                     android:layout_marginTop="4dp"
                     android:visibility="gone" />
 
-                <TextView
-                    android:id="@+id/state_tertiary"
-                    style="@style/Widget.Ds.Button.Text"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- Contenuto con dati. -->
@@ -677,6 +671,106 @@
                         android:text="@string/openai_retry"
                         android:visibility="gone" />
                 </LinearLayout>
+
+                <!-- Credito residuo: secondario, non cliccabile, un solo nodo TalkBack. -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/openai_credit_card"
+                    style="@style/Widget.Ds.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:clickable="false"
+                    android:focusable="true"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/ds_space_16">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:minHeight="@dimen/ds_credit_tag_min_height"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:importantForAccessibility="no"
+                                android:maxLines="2"
+                                android:text="@string/openai_credit_title"
+                                android:textAppearance="@style/TextAppearance.Ds.Overline" />
+
+                            <TextView
+                                android:id="@+id/openai_credit_tag"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/ds_space_8"
+                                android:gravity="center"
+                                android:importantForAccessibility="no"
+                                android:letterSpacing="0"
+                                android:minHeight="@dimen/ds_credit_tag_min_height"
+                                android:paddingStart="@dimen/ds_space_8"
+                                android:paddingTop="3dp"
+                                android:paddingEnd="@dimen/ds_space_8"
+                                android:paddingBottom="3dp"
+                                android:textAllCaps="false"
+                                android:textAppearance="@style/TextAppearance.Ds.Overline"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/openai_credit_value"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:ellipsize="none"
+                            android:importantForAccessibility="no"
+                            android:maxLines="1"
+                            android:textAppearance="@style/TextAppearance.Ds.DisplayS"
+                            app:autoSizeMaxTextSize="28sp"
+                            app:autoSizeMinTextSize="20sp"
+                            app:autoSizeStepGranularity="1sp"
+                            app:autoSizeTextType="uniform" />
+
+                        <TextView
+                            android:id="@+id/openai_credit_ref"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:importantForAccessibility="no"
+                            android:maxLines="2"
+                            android:textAppearance="@style/TextAppearance.Ds.Caption"
+                            android:textColor="@color/ds_color_text_tertiary"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/openai_credit_note"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:importantForAccessibility="no"
+                            android:maxLines="3"
+                            android:textAppearance="@style/TextAppearance.Ds.CaptionSmall"
+                            android:textColor="@color/ds_color_text_tertiary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/openai_credit_action"
+                            style="@style/Widget.Ds.Button.Text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="48dp"
+                            android:layout_marginTop="4dp"
+                            android:paddingStart="0dp"
+                            android:paddingEnd="0dp"
+                            android:text="@string/openai_credit_missing_action"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     style="@style/Widget.Ds.Card"

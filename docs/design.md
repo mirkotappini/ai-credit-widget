@@ -1337,6 +1337,7 @@ Prima di considerare la UI finita:
 - [ ] Offline con cache, offline senza cache, 401, 429, 5xx, risposta malformata: copy e trattamento coerenti con 3.3.
 - [ ] Sotto soglia: banner, dot, notifica una sola volta per attraversamento.
 - [ ] Saldo non disponibile: `—` e banner, nessun numero inventato.
+- [ ] Credito OpenAI: provenienza dichiarata, card assente senza dati, fallimento legacy silenzioso.
 - [ ] Storico: 7/30, dati parziali, vuoto, un solo punto, caricamento altri.
 - [ ] Widget 2x2 e 4x2: 110/250 dp, valori lunghi, refresh, offline, chiave non valida, tema chiaro/scuro, launcher con padding.
 - [ ] Widget: nessun testo tagliato, nessuna ellissi sul saldo, stato leggibile senza colore.
@@ -1366,18 +1367,17 @@ L'app può mostrare un provider alla volta nella Dashboard e nello Storico. Non 
 | Provider | Cosa espone | Numero dominante | Fonte | Vincolo |
 |---|---|---|---|---|
 | DeepSeek | Saldo residuo, omaggio, ricariche, spesa stimata localmente | Saldo totale | `/user/balance` + `SnapshotDb` locale | Nessun cambio rispetto alla v1 |
-| OpenAI | Solo costi giornalieri dell'organizzazione | Speso oggi | Costi per organizzazione | Richiede una Admin key; nessun saldo disponibile |
-| Claude | Fuori perimetro v2 | — | — | Nessuna UI, nessuna chiave, nessun widget |
+| OpenAI | Costi giornalieri dell'organizzazione; credito residuo reale o stimato quando disponibile | Speso oggi | Costi per organizzazione + endpoint di fatturazione legacy | Richiede una Admin key; il credito è opzionale e non è un saldo |
 
 Regole:
 
 - Il selettore è l'unico punto di cambio provider nella Dashboard e nello Storico. Il widget non ha selettore e resta DeepSeek-only.
 - Non si usa la parola "saldo" per OpenAI. Le etichette sono "Speso", "Costi", "Spesa". "Saldo" resta un termine esclusivo DeepSeek.
-- OpenAI non espone un credito residuo: l'interfaccia non mostra mai un numero di saldo, una barra omaggio/ricariche o un saldo stimato.
+- OpenAI può mostrare il credito residuo in una card secondaria, con provenienza dichiarata: reale dall'endpoint di fatturazione legacy quando risponde, oppure stima dall'importo di riferimento dell'utente meno i costi dei giorni UTC successivi. Le due provenienze non convivono (il reale vince) e senza né reale né stima la card è assente. Restano fuori: la parola "saldo", la barra omaggio/ricariche e il flusso di ricarica.
 - I costi OpenAI sono bucket giornalieri in UTC. L'app non li converte in giorni locali: una conversione sarebbe una stima inventata. La UI dichiara "UTC" dove serve.
 - Il titolo della Dashboard diventa `Credito`, senza nome provider: il contesto è nel selettore. Il nome dell'app resta invariato per non cambiare identità e widget.
 - Il provider attivo è indipendente dal tab scelto in Impostazioni. In Impostazioni si modifica un provider; non si cambia quello attivo.
-- La soglia di avviso e la notifica restano concetti DeepSeek. OpenAI non ha una soglia di saldo e non produce notifiche di soglia.
+- La soglia di avviso e la notifica restano concetti DeepSeek. OpenAI non ha una soglia sul credito e non produce notifiche di soglia.
 - Non c'è conversione valuta. DeepSeek usa l'entry USD preferita dal client; OpenAI restituisce USD. Il simbolo resta `$`.
 
 ### 13.2 Selettore provider
@@ -1436,7 +1436,7 @@ Content description:
 - Configurato inattivo: `Provider OpenAI. Attiva per passare a OpenAI.`
 - Senza key: `Provider OpenAI, non configurato. Apri le impostazioni OpenAI.`
 
-### 13.3 Dashboard OpenAI — variante "solo costi"
+### 13.3 Dashboard OpenAI — costi e credito residuo
 
 La Dashboard OpenAI non ha un hero di saldo. Il numero dominante è il costo del giorno. Non ci sono barra di ripartizione, legenda omaggio/ricariche, saldo, soglia o banner di soglia.
 
@@ -1518,12 +1518,23 @@ La soglia di 36 h è deliberata: OpenAI può pubblicare i costi con molte ore di
 
 La Dashboard OpenAI non mostra:
 
-- saldo, saldo stimato, credito residuo;
+- saldo nel senso DeepSeek, flusso di ricarica;
 - barra omaggio/ricariche;
 - soglia o notifica;
 - confronto con DeepSeek;
 - stima di costi futuri o proiezioni;
 - conversione UTC → locale.
+
+#### 13.3.1 Credito residuo OpenAI
+
+Card secondaria tra hero/banner e card barre. Anatomia, copy esatta, stati, impostazioni e accessibilità: `docs/design-1.1.4-credito-openai.md`. Invarianti:
+
+- Il costo del giorno resta il numero dominante (48 sp); il credito è 28 sp, con tag di provenienza `Da OpenAI` o `Stima`, mai entrambi: il reale vince.
+- Reale = endpoint di fatturazione legacy, non documentato. Fallimento (401/403/404, HTML, risposta non valida) silenzioso: nessun banner, nessun errore di key; resta l'ultimo reale valido o la stima.
+- Stima = importo di riferimento dell'utente meno i costi dei giorni UTC **successivi** alla data del riferimento: il giorno del riferimento è già incluso nell'importo letto in console. I giorni mancanti non sono zero, quindi la stima è per eccesso.
+- Nessun dato: card visibile con tag `Da impostare`, valore `—` e pulsante `Imposta riferimento` che porta al campo in Impostazioni. Mai `$0,00`; residuo negativo mostrato con `−`, senza clamp.
+- Nessuna conversione di valuta (USD), nessuna soglia o notifica, nessun flusso di ricarica. Il widget resta DeepSeek-only e non legge il credito.
+- Resta vietata la parola "saldo" per OpenAI; il termine ammesso è "credito residuo".
 
 ### 13.4 Stati OpenAI
 
@@ -1559,9 +1570,8 @@ Lo Storico condivide selettore provider, filtro 7/30 e strip di stato. Cambia il
 |---|---|
 | DeepSeek | Invariato: card saldo con linea, min/max, card spesa con barre, lista snapshot con orari |
 | OpenAI | Nessuna linea di saldo: riepilogo spesa, barre giornaliere, lista costi per giorno |
-| Claude | Non previsto |
 
-Il filtro 7/30 resta nello stesso punto e mantiene la selezione quando si cambia provider. Lo scroll torna in cima al cambio provider. Il selettore provider resta sopra la strip di stato; con 3 provider occupa 101 dp per segmento, come in 8.2.
+Il filtro 7/30 resta nello stesso punto e mantiene la selezione quando si cambia provider. Lo scroll torna in cima al cambio provider. Il selettore provider resta sopra la strip di stato; con 2 provider i due segmenti si dividono la larghezza in parti uguali.
 
 #### 13.5.1 Struttura OpenAI
 
@@ -1668,7 +1678,7 @@ ADMIN KEY
 
 COSTI E PERMESSI
 ╭──────────────────────────────────────╮
-│ OpenAI non espone un saldo...        │
+│ Credito: reale o stima.              │
 │ I costi sono per giorno UTC.         │
 │ Il widget della home resta DeepSeek. │
 ╰──────────────────────────────────────╯
@@ -1692,7 +1702,7 @@ Ordine definitivo:
 2. Caption "stai modificando", 16 dp, solo se il provider del tab è diverso da quello attivo.
 3. Sezione del provider:
    - DeepSeek: `ACCESSO` + `AVVISI`, invariata.
-   - OpenAI: `ADMIN KEY` + `COSTI E PERMESSI`.
+   - OpenAI: `ADMIN KEY` + `CREDITO RESIDUO` + `COSTI E PERMESSI`.
 4. `AGGIORNAMENTO`, comune, una sola volta.
 5. `INFORMAZIONI`, comune, una sola volta.
 
@@ -1743,12 +1753,13 @@ Il controllo locale è volutamente conservativo e non blocca definitivamente:
 
 Card informativa, non editabile, padding 16, raggio 16, testo 12 sp secondary, titoli 15 sp:
 
-- `OpenAI non espone un saldo. L'app legge solo i costi giornalieri.`
+- `OpenAI non espone il credito residuo nell'API dei costi. Se l'endpoint di fatturazione risponde, l'app legge il valore reale.`
+- `Se la lettura non riesce, il credito residuo è una stima basata sul tuo importo di riferimento.`
 - `I costi sono per giorno UTC.`
 - `Il widget della home resta collegato a DeepSeek.`
 - `La soglia di avviso è disponibile solo per DeepSeek.`
 
-La card non contiene un pulsante "Ricarica" o "Aggiungi credito": non esiste un saldo OpenAI da ricaricare. Non si inventa un flusso di top-up.
+La card non contiene un pulsante "Ricarica" o "Aggiungi credito": il riferimento serve solo alla stima e non modifica il credito sull'account. Non si inventa un flusso di top-up.
 
 #### 13.6.5 Sezioni comuni
 
@@ -1874,10 +1885,11 @@ Regole: stesso tono della v1, nessun punto esclamativo, nessun "Oops", nessuna e
 | Rimuovi | `Rimuovi Admin key` |
 | Dialog rimozione | `Rimuovere la Admin key?` / `I costi OpenAI smetteranno di aggiornarsi. Lo storico locale resta disponibile.` / `Rimuovi` / `Annulla` |
 | Sezione info | `COSTI E PERMESSI` |
-| Info 1 | `OpenAI non espone un saldo. L'app legge solo i costi giornalieri.` |
+| Info 1 | `OpenAI non espone il credito residuo nell'API dei costi. Se l'endpoint di fatturazione risponde, l'app legge il valore reale.` |
 | Info 2 | `I costi sono per giorno UTC.` |
 | Info 3 | `Il widget della home resta collegato a DeepSeek.` |
 | Info 4 | `La soglia di avviso è disponibile solo per DeepSeek.` |
+| Info 5 | `Se la lettura non riesce, il credito residuo è una stima basata sul tuo importo di riferimento.` |
 | Contesto tab | `Stai modificando OpenAI. Il provider attivo resta DeepSeek.` / `Stai modificando DeepSeek. Il provider attivo resta OpenAI.` |
 | Intervallo | `Vale per entrambi i provider. OpenAI può pubblicare i costi con qualche ora di ritardo.` |
 | Privacy | `Chiavi e dati restano sul dispositivo. Le richieste vanno a api.deepseek.com e api.openai.com.` |
@@ -1947,3 +1959,7 @@ Regole:
 - Il widget non cambia token: usa `ds_widget_2x2_min_*`, `ds_widget_4x2_min_*`, `ds_widget_dot`, `ds_color_warning`, `ds_color_text_tertiary` già esistenti.
 - La tabella token della sezione 10 resta valida; questa tabella aggiunge solo alias semantici e i quattro valori nuovi (`ds_provider_dot`, `ds_latency_icon`, `ds_cost_row_today`, `ds_provider_note`) più lo stile `MetricM`.
 - Nessun nuovo font file, nessun nuovo hex, nessuna nuova ombra, nessun nuovo raggio oltre a quelli già in uso (12 dp controlli, 16 dp card, 20 dp hero).
+
+## 14. Cronologia
+
+- 1.2.0: rimosso il provider Claude; restano DeepSeek e OpenAI.
